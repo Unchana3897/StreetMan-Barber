@@ -143,6 +143,17 @@
         }
         window.open(window.StreetMan.waUrl(lines.join("\n")), "_blank", "noopener");
         showAlert(true, t("book_ok_wa"));
+        if (window.StreetManSlip) {
+            window.StreetManSlip.show({
+                customer_name: document.getElementById("name").value.trim(),
+                phone: document.getElementById("phone").value.trim(),
+                service: serviceEl.value,
+                barber_id: barberEl.value,
+                date: dateEl.value,
+                time: timeEl.value,
+                note: document.getElementById("note").value.trim()
+            });
+        }
     }
 
     dateEl.min = todayISO();
@@ -168,6 +179,23 @@
         loadSlots();
     });
 
+    var saveBtn = document.getElementById("slip-save");
+    var closeBtn = document.getElementById("slip-close");
+    if (saveBtn) {
+        saveBtn.addEventListener("click", function () {
+            if (window.StreetManSlip) {
+                window.StreetManSlip.save();
+            }
+        });
+    }
+    if (closeBtn) {
+        closeBtn.addEventListener("click", function () {
+            if (window.StreetManSlip) {
+                window.StreetManSlip.hide();
+            }
+        });
+    }
+
     form.addEventListener("submit", async function (e) {
         e.preventDefault();
         var payload = {
@@ -186,6 +214,9 @@
                 return;
             }
             showAlert(true, t("book_ok") + " · " + data.booking.date + " " + data.booking.time);
+            if (window.StreetManSlip) {
+                window.StreetManSlip.show(data.booking);
+            }
             form.reset();
             dateEl.value = todayISO();
             loadSlots();

@@ -439,3 +439,36 @@ input[type="date"].form-control {
 .footer .copyright a:hover {
     color: var(--primary);
 }
+
+.slip-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(0, 0, 0, 0.86);
+    overflow: auto;
+    padding: 24px 16px 40px;
+}
+
+.slip-card {
+    max-width: 420px;
+    margin: 0 auto;
+    background: #191C24;
+    padding: 20px;
+}
+
+.slip-card img {
+    width: 100%;
+    height: auto;
+    display: block;
+    margin-bottom: 16px;
+}
+
+.slip-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.slip-actions .btn {
+    flex: 1 1 140px;
+}

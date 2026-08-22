@@ -228,6 +228,18 @@
         </div>
     </div>
 
+    <div id="slip-overlay" class="slip-overlay d-none">
+        <div class="slip-card">
+            <p class="text-primary mb-2" data-i18n="slip_title">สลิปจองคิว</p>
+            <p class="mb-3" data-i18n="slip_hint">มือถือ: กดค้างที่รูปเพื่อบันทึกลงเครื่องได้</p>
+            <img id="slip-image" alt="สลิปจองคิว StreetMan Barber">
+            <div class="slip-actions">
+                <button type="button" class="btn btn-primary py-3" id="slip-save" data-i18n="slip_save">บันทึกรูปสลิป</button>
+                <button type="button" class="btn btn-outline-light py-3" id="slip-close" data-i18n="slip_close">ปิด</button>
+            </div>
+        </div>
+    </div>
+
     <div class="container-fluid bg-secondary text-light footer mt-5 pt-5 wow fadeIn" data-wow-delay="0.1s">
         <div class="container py-5">
             <div class="row g-5">
@@ -312,6 +324,7 @@
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="js/i18n.js"></script>
     <script src="js/store.js"></script>
+    <script src="js/slip.js"></script>
     <script src="js/main.js"></script>
     <script src="js/book.js"></script>
 </body>
