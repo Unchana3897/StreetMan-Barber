@@ -9,6 +9,7 @@ const bcrypt = require("bcryptjs");
 const db = require("./db");
 const { seed } = require("./seed");
 const push = require("./push");
+const { ensureDataDir } = require("./paths");
 
 seed();
 
@@ -766,6 +767,7 @@ app.use((req, res) => {
 
 app.listen(PORT, () => {
     console.log(`StreetMan Barber Phuket running at http://localhost:${PORT}`);
+    console.log("Data directory:", ensureDataDir());
     console.log("Customer booking: /book.html");
     console.log("Barber login: /barber/login.html");
     console.log("Barber dashboard: /barber/dashboard.html");

@@ -4,8 +4,9 @@ const fs = require("fs");
 const path = require("path");
 const webpush = require("web-push");
 const db = require("./db");
+const { ensureDataDir } = require("./paths");
 
-const dataDir = path.join(__dirname, "..", "data");
+const dataDir = ensureDataDir();
 const vapidPath = path.join(dataDir, "vapid.json");
 
 function loadVapid() {

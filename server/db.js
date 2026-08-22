@@ -1,13 +1,10 @@
 "use strict";
 
-const fs = require("fs");
 const path = require("path");
 const Database = require("better-sqlite3");
+const { ensureDataDir } = require("./paths");
 
-const dataDir = path.join(__dirname, "..", "data");
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-}
+const dataDir = ensureDataDir();
 
 const db = new Database(path.join(dataDir, "streetman.sqlite"));
 db.pragma("journal_mode = WAL");
