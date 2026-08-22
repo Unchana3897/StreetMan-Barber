@@ -267,7 +267,28 @@
     color: #6C7293;
 }
 
-.queue-card.is-pending .queue-status {
+.queue-amount {
+    color: #EB1616;
+    font-family: Oswald, "Noto Sans Thai", sans-serif;
+    font-size: 18px;
+    margin: 8px 0 0;
+}
+
+.queue-extras {
+    margin-top: 8px;
+}
+
+.extra-chip {
+    background: #111;
+    border: 0;
+    color: #fff;
+    padding: 6px 10px;
+    margin: 0 6px 6px 0;
+    font-size: 12px;
+}
+
+.extra-chip.is-on {
+    outline: 1px solid #EB1616;
     color: #EB1616;
 }
 

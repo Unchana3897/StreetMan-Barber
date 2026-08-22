@@ -113,6 +113,39 @@
         });
     }
 
+    function extrasList(row) {
+        var list = Array.isArray(row && row.extras) ? row.extras : [];
+        var seen = {};
+        return list.filter(function (item) {
+            if (!PRICES[item] || item === row.service || seen[item]) {
+                return false;
+            }
+            seen[item] = true;
+            return true;
+        });
+    }
+
+    function bookingAmount(row) {
+        var total = PRICES[row.service] || 0;
+        extrasList(row).forEach(function (item) {
+            total += PRICES[item] || 0;
+        });
+        return total;
+    }
+
+    function decorateBooking(row) {
+        var extras = extrasList(row);
+        var extraTotal = 0;
+        extras.forEach(function (item) {
+            extraTotal += PRICES[item] || 0;
+        });
+        return Object.assign({}, row, {
+            extras: extras,
+            extra_total: extraTotal,
+            amount: (PRICES[row.service] || 0) + extraTotal
+        });
+    }
+
     function summarize(rows) {
         var booked = rows.filter(function (row) { return row.status !== "cancelled"; });
         var done = rows.filter(function (row) { return row.status === "done"; });
@@ -121,7 +154,7 @@
         });
         var revenue = 0;
         done.forEach(function (row) {
-            revenue += PRICES[row.service] || 0;
+            revenue += bookingAmount(row);
         });
         return {
             booked: booked.length,
@@ -287,7 +320,7 @@
             return row.barber_id === barber.id && row.date === date;
         }).sort(function (a, b) {
             return a.time < b.time ? -1 : a.time > b.time ? 1 : a.id - b.id;
-        });
+        }).map(decorateBooking);
         var stats = {
             total: bookings.length,
             pending: bookings.filter(function (row) { return row.status === "pending"; }).length,
@@ -465,6 +498,39 @@
             writeQueue(rows);
             return { ok: true };
         },
+        updateExtras: async function (id, payload) {
+            if (await usingNode()) {
+                return nodeFetch("/api/barber/bookings/" + id, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+            }
+            var barber = await Store.me();
+            var updated = null;
+            var rows = readQueue().map(function (row) {
+                if (row.id !== id || row.barber_id !== barber.id) {
+                    return row;
+                }
+                var extras = extrasList(row);
+                if (Array.isArray(payload.extras)) {
+                    extras = payload.extras;
+                }
+                if (payload.add_extra) {
+                    extras = extras.concat(String(payload.add_extra));
+                }
+                if (payload.remove_extra) {
+                    extras = extras.filter(function (item) {
+                        return item !== String(payload.remove_extra);
+                    });
+                }
+                row.extras = extras;
+                updated = decorateBooking(row);
+                return updated;
+            });
+            writeQueue(rows);
+            return { ok: true, booking: updated };
+        },
         availableSlots: async function (service, date, barber) {
             if (await usingNode()) {
                 var data = await nodeFetch("/api/slots?service=" + encodeURIComponent(service) + "&date=" + encodeURIComponent(date) + "&barber=" + encodeURIComponent(barber || "any"));
@@ -505,6 +571,9 @@
                 date: payload.date,
                 time: payload.time,
                 note: payload.note || null,
+                extras: [],
+                extra_total: 0,
+                amount: PRICES[payload.service] || 0,
                 status: "pending",
                 created_at: new Date().toISOString()
             };

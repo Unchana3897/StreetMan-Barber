@@ -69,4 +69,8 @@ if (!hasColumn("barbers", "active")) {
 }
 db.prepare("UPDATE barbers SET role = 'owner' WHERE id = 'rim'").run();
 
+if (!hasColumn("bookings", "extras")) {
+    db.exec("ALTER TABLE bookings ADD COLUMN extras TEXT NOT NULL DEFAULT '[]'");
+}
+
 module.exports = db;

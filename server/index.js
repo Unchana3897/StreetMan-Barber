@@ -131,41 +131,74 @@ function publicBarber(row) {
     };
 }
 
+function parseExtras(raw, mainService) {
+    let list = [];
+    try {
+        list = typeof raw === "string" ? JSON.parse(raw || "[]") : (raw || []);
+    } catch (err) {
+        list = [];
+    }
+    if (!Array.isArray(list)) {
+        list = [];
+    }
+    const seen = new Set();
+    return list.filter((item) => {
+        if (!SERVICES[item] || item === mainService || seen.has(item)) {
+            return false;
+        }
+        seen.add(item);
+        return true;
+    });
+}
+
+function extrasTotal(extras) {
+    return extras.reduce((sum, item) => sum + ((SERVICES[item] && SERVICES[item].price) || 0), 0);
+}
+
+function bookingAmount(row) {
+    const extras = Array.isArray(row.extras) ? row.extras : parseExtras(row.extras, row.service);
+    const base = (SERVICES[row.service] && SERVICES[row.service].price) || 0;
+    return base + extrasTotal(extras);
+}
+
+function decorateBooking(row) {
+    if (!row) {
+        return row;
+    }
+    const extras = parseExtras(row.extras, row.service);
+    const extraTotal = extrasTotal(extras);
+    const base = (SERVICES[row.service] && SERVICES[row.service].price) || 0;
+    return Object.assign({}, row, {
+        extras,
+        extra_total: extraTotal,
+        amount: base + extraTotal
+    });
+}
+
 function summarize(rows) {
     const booked = rows.filter((row) => row.status !== "cancelled");
     const done = rows.filter((row) => row.status === "done");
     const remaining = rows.filter((row) => row.status === "pending" || row.status === "confirmed");
-    const byService = {};
-    let revenue = 0;
-    done.forEach((row) => {
-        const price = (SERVICES[row.service] && SERVICES[row.service].price) || 0;
-        revenue += price;
-        if (!byService[row.service]) {
-            byService[row.service] = { count: 0, revenue: 0 };
-        }
-        byService[row.service].count += 1;
-        byService[row.service].revenue += price;
-    });
     return {
         booked: booked.length,
         done: done.length,
         remaining: remaining.length,
         cancelled: rows.filter((row) => row.status === "cancelled").length,
-        revenue
+        revenue: done.reduce((sum, row) => sum + bookingAmount(row), 0)
     };
 }
 
 function bookingsBetween(barberId, from, to) {
     if (barberId) {
         return db.prepare(`
-            SELECT id, customer_name, phone, service, barber_id, date, time, note, status, created_at
+            SELECT id, customer_name, phone, service, extras, barber_id, date, time, note, status, created_at
             FROM bookings
             WHERE barber_id = ? AND date >= ? AND date <= ?
             ORDER BY date, time, id
         `).all(barberId, from, to);
     }
     return db.prepare(`
-        SELECT id, customer_name, phone, service, barber_id, date, time, note, status, created_at
+        SELECT id, customer_name, phone, service, extras, barber_id, date, time, note, status, created_at
         FROM bookings
         WHERE date >= ? AND date <= ?
         ORDER BY date, time, id
@@ -393,12 +426,12 @@ app.post("/api/bookings", (req, res) => {
         throw err;
     }
 
-    const booking = db.prepare(`
+    const booking = decorateBooking(db.prepare(`
         SELECT b.*, br.name AS barber_name
         FROM bookings b
         JOIN barbers br ON br.id = b.barber_id
         WHERE b.id = ?
-    `).get(info.lastInsertRowid);
+    `).get(info.lastInsertRowid));
 
     notify(chosen.barberId, { type: "new_booking", booking });
     push.notifyPush(chosen.barberId, booking);
@@ -458,12 +491,12 @@ app.get("/api/barbers", (req, res) => {
 app.get("/api/barber/bookings", requireBarber, (req, res) => {
     const date = String(req.query.date || todayISO());
     const rows = db.prepare(`
-        SELECT id, customer_name, phone, service, barber_id, date, time, note, status, created_at
+        SELECT id, customer_name, phone, service, extras, barber_id, date, time, note, status, created_at
         FROM bookings
         WHERE barber_id = ? AND date = ?
         ORDER BY time ASC, id ASC
     `).all(req.barber.barber_id, date);
-    res.json({ date, bookings: rows });
+    res.json({ date, bookings: rows.map(decorateBooking) });
 });
 
 app.get("/api/barber/dashboard", requireBarber, (req, res) => {
@@ -471,11 +504,11 @@ app.get("/api/barber/dashboard", requireBarber, (req, res) => {
     const barberId = req.barber.barber_id;
     const now = bangkokNow();
     const bookings = db.prepare(`
-        SELECT id, customer_name, phone, service, barber_id, date, time, note, status, created_at
+        SELECT id, customer_name, phone, service, extras, barber_id, date, time, note, status, created_at
         FROM bookings
         WHERE barber_id = ? AND date = ?
         ORDER BY time ASC, id ASC
-    `).all(barberId, date);
+    `).all(barberId, date).map(decorateBooking);
 
     const stats = {
         total: bookings.length,
@@ -529,16 +562,38 @@ app.get("/api/barber/dashboard", requireBarber, (req, res) => {
 
 app.patch("/api/barber/bookings/:id", requireBarber, (req, res) => {
     const id = Number(req.params.id);
-    const status = String(req.body.status || "");
-    if (!["pending", "confirmed", "done", "cancelled"].includes(status)) {
-        return res.status(400).json({ error: "bad_status" });
-    }
     const existing = db.prepare("SELECT * FROM bookings WHERE id = ? AND barber_id = ?").get(id, req.barber.barber_id);
     if (!existing) {
         return res.status(404).json({ error: "not_found" });
     }
-    db.prepare("UPDATE bookings SET status = ? WHERE id = ?").run(status, id);
-    const booking = db.prepare("SELECT * FROM bookings WHERE id = ?").get(id);
+
+    if (req.body.status) {
+        const status = String(req.body.status || "");
+        if (!["pending", "confirmed", "done", "cancelled"].includes(status)) {
+            return res.status(400).json({ error: "bad_status" });
+        }
+        db.prepare("UPDATE bookings SET status = ? WHERE id = ?").run(status, id);
+    }
+
+    if (req.body.add_extra || req.body.remove_extra || req.body.extras) {
+        let extras = parseExtras(existing.extras, existing.service);
+        if (Array.isArray(req.body.extras)) {
+            extras = parseExtras(req.body.extras, existing.service);
+        }
+        if (req.body.add_extra) {
+            extras = parseExtras(extras.concat(String(req.body.add_extra)), existing.service);
+        }
+        if (req.body.remove_extra) {
+            extras = extras.filter((item) => item !== String(req.body.remove_extra));
+        }
+        db.prepare("UPDATE bookings SET extras = ? WHERE id = ?").run(JSON.stringify(extras), id);
+    }
+
+    if (!req.body.status && !req.body.add_extra && !req.body.remove_extra && !req.body.extras) {
+        return res.status(400).json({ error: "bad_update" });
+    }
+
+    const booking = decorateBooking(db.prepare("SELECT * FROM bookings WHERE id = ?").get(id));
     res.json({ ok: true, booking });
 });
 

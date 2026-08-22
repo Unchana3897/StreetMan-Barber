@@ -9,6 +9,15 @@
         mustache: "ตกแต่งหนวด",
         stacking: "เซ็ตทรง"
     };
+    var PRICES = {
+        haircut: 300,
+        beard: 200,
+        shave: 200,
+        dye: 150,
+        mustache: 500,
+        stacking: 1000
+    };
+    var SERVICE_ORDER = ["haircut", "beard", "shave", "dye", "mustache", "stacking"];
 
     var STATUS = {
         pending: "รอรับ",
@@ -228,6 +237,9 @@
         if (url.indexOf("/api/barber/bookings/") === 0 && options && options.method === "PATCH") {
             var id = Number(url.split("/").pop());
             var body = JSON.parse(options.body || "{}");
+            if (body.add_extra || body.remove_extra || body.extras) {
+                return window.StreetManStore.updateExtras(id, body);
+            }
             return window.StreetManStore.updateStatus(id, body.status);
         }
         if (url === "/api/me") {
@@ -396,8 +408,10 @@
         nextEl.querySelector("h2").textContent = booking.customer_name;
         nextEl.querySelector(".queue-meta").textContent =
             (SERVICES[booking.service] || booking.service) +
+            " " + baht(PRICES[booking.service] || 0) +
             " · " + booking.phone +
             (booking.note ? " · " + booking.note : "");
+        nextEl.querySelector(".queue-meta").parentNode.appendChild(extrasPanel(booking));
         var actions = document.createElement("div");
         actions.className = "queue-actions";
         if (booking.status === "pending") {
@@ -433,8 +447,10 @@
             card.querySelector("strong").textContent = row.customer_name;
             card.querySelector(".queue-meta").textContent =
                 (SERVICES[row.service] || row.service) +
+                " " + baht(PRICES[row.service] || 0) +
                 (row.note ? " · " + row.note : "");
             card.querySelector(".queue-status").textContent = STATUS[row.status] || row.status;
+            card.children[1].appendChild(extrasPanel(row));
 
             var actions = card.querySelector(".queue-actions");
             if (row.status === "pending") {
@@ -449,6 +465,41 @@
             actions.appendChild(contactButtons(row));
             listEl.appendChild(card);
         });
+    }
+
+    function extrasPanel(row) {
+        var wrap = document.createElement("div");
+        wrap.className = "queue-extras";
+        if (row.status === "cancelled") {
+            return wrap;
+        }
+        var extras = row.extras || [];
+        var total = row.amount != null ? row.amount : (PRICES[row.service] || 0);
+        var amount = document.createElement("p");
+        amount.className = "queue-amount mb-2";
+        amount.textContent = extras.length
+            ? "จอง " + baht(PRICES[row.service] || 0) + " + เพิ่ม " + baht(row.extra_total || 0) + " = " + baht(total)
+            : "ยอดจอง " + baht(total);
+        wrap.appendChild(amount);
+        var hint = document.createElement("p");
+        hint.className = "queue-meta mb-2";
+        hint.textContent = "เพิ่มบริการตอนตัด";
+        wrap.appendChild(hint);
+        SERVICE_ORDER.forEach(function (service) {
+            if (service === row.service) {
+                return;
+            }
+            var on = extras.indexOf(service) !== -1;
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "extra-chip" + (on ? " is-on" : "");
+            btn.textContent = (on ? "✓ " : "+ ") + (SERVICES[service] || service) + " " + baht(PRICES[service]);
+            btn.addEventListener("click", function () {
+                updateExtras(row.id, on ? { remove_extra: service } : { add_extra: service });
+            });
+            wrap.appendChild(btn);
+        });
+        return wrap;
     }
 
     function actionBtn(label, status, id) {
@@ -471,6 +522,15 @@
         renderWeek(data.upcoming, data.date);
         renderNext(data.next);
         renderList(data.bookings || []);
+    }
+
+    async function updateExtras(id, payload) {
+        await api("/api/barber/bookings/" + id, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        load();
     }
 
     async function updateStatus(id, status) {
