@@ -126,6 +126,18 @@
     text-align: center;
 }
 
+.push-hint {
+    background: #191C24;
+    color: #fff;
+    padding: 12px 20px;
+    font-size: 14px;
+    border-bottom: 1px solid #222;
+}
+
+#notify-btn:disabled {
+    opacity: 0.7;
+}
+
 .dash-wrap {
     max-width: 980px;
 }

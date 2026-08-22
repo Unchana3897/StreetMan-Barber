@@ -79,6 +79,114 @@
         }, 6000);
     }
 
+    function urlBase64ToUint8Array(base64String) {
+        var padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+        var base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+        var raw = atob(base64);
+        var output = new Uint8Array(raw.length);
+        for (var i = 0; i < raw.length; i += 1) {
+            output[i] = raw.charCodeAt(i);
+        }
+        return output;
+    }
+
+    function isIos() {
+        return /iphone|ipad|ipod/i.test(navigator.userAgent);
+    }
+
+    function isStandalone() {
+        return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    }
+
+    function setNotifyBtn(text, enabled) {
+        var btn = document.getElementById("notify-btn");
+        btn.textContent = text;
+        btn.disabled = !enabled;
+    }
+
+    function renderPushHint() {
+        var hint = document.getElementById("push-hint");
+        if (isIos() && !isStandalone()) {
+            hint.textContent = "iPhone: กดแชร์ → เพิ่มไปยังหน้าจอโฮม แล้วเปิดแอปคิวช่างจากไอคอน แล้วค่อยกดเปิดแจ้งเตือนมือถือ";
+            hint.classList.remove("d-none");
+            return;
+        }
+        if (!window.isSecureContext || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+            hint.textContent = "การแจ้งเตือนมือถือใช้ได้เมื่อเปิดร้านผ่าน HTTPS (หรือ localhost) บน Chrome / Safari ที่รองรับ";
+            hint.classList.remove("d-none");
+            return;
+        }
+        hint.textContent = "กดเปิดแจ้งเตือนมือถือหนึ่งครั้ง เครื่องนี้จะได้รับคิวใหม่แม้ปิดหน้าเว็บไว้";
+        hint.classList.remove("d-none");
+    }
+
+    async function registerWorker() {
+        if (!("serviceWorker" in navigator)) {
+            return null;
+        }
+        return navigator.serviceWorker.register("sw.js");
+    }
+
+    async function syncPushState() {
+        var btn = document.getElementById("notify-btn");
+        if (isIos() && !isStandalone()) {
+            setNotifyBtn("เพิ่มไปหน้าจอโฮมก่อน", false);
+            return;
+        }
+        if (!window.isSecureContext || !("PushManager" in window)) {
+            setNotifyBtn("มือถือเครื่องนี้ยังไม่รองรับ", false);
+            return;
+        }
+        try {
+            var reg = await registerWorker();
+            await navigator.serviceWorker.ready;
+            var sub = await reg.pushManager.getSubscription();
+            if (sub) {
+                await api("/api/barber/push-subscribe", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(sub)
+                });
+                setNotifyBtn("แจ้งเตือนมือถือเปิดแล้ว", false);
+            } else {
+                setNotifyBtn("เปิดแจ้งเตือนมือถือ", true);
+            }
+        } catch (err) {
+            setNotifyBtn("เปิดแจ้งเตือนมือถือ", true);
+        }
+        btn.disabled = btn.textContent !== "เปิดแจ้งเตือนมือถือ";
+    }
+
+    async function enablePush() {
+        if (isIos() && !isStandalone()) {
+            showToast("iPhone ต้องเพิ่มไปยังหน้าจอโฮมก่อน แล้วเปิดจากไอคอน");
+            return;
+        }
+        if (!window.Notification || !("PushManager" in window)) {
+            showToast("เบราว์เซอร์นี้ยังไม่รองรับการแจ้งเตือนเว็บ");
+            return;
+        }
+        var perm = await Notification.requestPermission();
+        if (perm !== "granted") {
+            showToast("ยังไม่ได้อนุญาตการแจ้งเตือน");
+            return;
+        }
+        var reg = await registerWorker();
+        await navigator.serviceWorker.ready;
+        var keyData = await api("/api/barber/push-key");
+        var sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
+        });
+        await api("/api/barber/push-subscribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(sub)
+        });
+        setNotifyBtn("แจ้งเตือนมือถือเปิดแล้ว", false);
+        showToast("เปิดแจ้งเตือนมือถือแล้ว คิวใหม่จะขึ้นแม้ปิดหน้านี้ไว้");
+    }
+
     function beep() {
         try {
             var ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -281,6 +389,8 @@
         setInterval(tickClock, 15000);
         dateEl.value = todayISO();
         await load();
+        renderPushHint();
+        syncPushState();
 
         dateEl.addEventListener("change", load);
         document.getElementById("today-btn").addEventListener("click", function () {
@@ -313,10 +423,7 @@
             window.location.href = "login.html";
         });
         document.getElementById("notify-btn").addEventListener("click", function () {
-            if (!window.Notification) {
-                return;
-            }
-            Notification.requestPermission();
+            enablePush();
         });
 
         if (window.EventSource) {

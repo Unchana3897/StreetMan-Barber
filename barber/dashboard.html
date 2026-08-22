@@ -5,7 +5,13 @@
     <title>Dashboard ช่าง | StreetMan Barber</title>
     <meta name="robots" content="noindex, nofollow">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#EB1616">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="คิวช่าง">
     <link rel="icon" href="../img/logo.PNG">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="../img/logo.PNG">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Oswald:wght@600&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
     <link href="../css/bootstrap.min.css" rel="stylesheet">
@@ -24,10 +30,11 @@
             <input type="date" id="queue-date" class="form-control">
             <button type="button" class="btn btn-outline-light" id="today-btn">วันนี้</button>
             <button type="button" class="btn btn-outline-light" id="next-day" aria-label="วันถัดไป"><i class="fa fa-chevron-right"></i></button>
-            <button type="button" class="btn btn-outline-light" id="notify-btn">เปิดแจ้งเตือน</button>
+            <button type="button" class="btn btn-outline-light" id="notify-btn">เปิดแจ้งเตือนมือถือ</button>
             <button type="button" class="btn btn-outline-light" id="logout-btn">ออกจากระบบ</button>
         </div>
     </header>
+    <div id="push-hint" class="push-hint"></div>
     <div id="toast" class="queue-toast d-none"></div>
     <main class="queue-wrap dash-wrap">
         <section class="week-strip" id="week-strip" aria-label="คิว 14 วันข้างหน้า"></section>

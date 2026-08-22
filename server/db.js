@@ -44,6 +44,15 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_slot
     ON bookings(barber_id, date, time)
     WHERE status != 'cancelled';
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    endpoint TEXT PRIMARY KEY,
+    barber_id TEXT NOT NULL,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (barber_id) REFERENCES barbers(id)
+);
 `);
 
 module.exports = db;

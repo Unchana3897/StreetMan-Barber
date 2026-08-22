@@ -8,6 +8,7 @@ const bcrypt = require("bcryptjs");
 
 const db = require("./db");
 const { seed } = require("./seed");
+const push = require("./push");
 
 seed();
 
@@ -87,6 +88,10 @@ app.use(express.static(path.join(__dirname, ".."), {
     setHeaders(res, filePath) {
         if (filePath.includes(`${path.sep}barber${path.sep}`)) {
             res.setHeader("X-Robots-Tag", "noindex, nofollow");
+        }
+        if (filePath.endsWith(`${path.sep}sw.js`)) {
+            res.setHeader("Cache-Control", "no-cache");
+            res.setHeader("Service-Worker-Allowed", "/barber/");
         }
     }
 }));
@@ -280,6 +285,7 @@ app.post("/api/bookings", (req, res) => {
     `).get(info.lastInsertRowid);
 
     notify(chosen.barberId, { type: "new_booking", booking });
+    push.notifyPush(chosen.barberId, booking);
     res.status(201).json({ ok: true, booking });
 });
 
@@ -408,6 +414,22 @@ app.patch("/api/barber/bookings/:id", requireBarber, (req, res) => {
     db.prepare("UPDATE bookings SET status = ? WHERE id = ?").run(status, id);
     const booking = db.prepare("SELECT * FROM bookings WHERE id = ?").get(id);
     res.json({ ok: true, booking });
+});
+
+app.get("/api/barber/push-key", requireBarber, (req, res) => {
+    res.json({ publicKey: push.publicKey });
+});
+
+app.post("/api/barber/push-subscribe", requireBarber, (req, res) => {
+    if (!push.saveSubscription(req.barber.barber_id, req.body || {})) {
+        return res.status(400).json({ error: "bad_subscription" });
+    }
+    res.json({ ok: true });
+});
+
+app.post("/api/barber/push-unsubscribe", requireBarber, (req, res) => {
+    push.removeSubscription(req.body && req.body.endpoint);
+    res.json({ ok: true });
 });
 
 app.get("/api/barber/events", requireBarber, (req, res) => {
