@@ -134,23 +134,42 @@
         return canvas;
     }
 
-    function showSlip(booking) {
-        var overlay = document.getElementById("slip-overlay");
+    function paintSlip(booking) {
         var img = document.getElementById("slip-image");
-        if (!overlay || !img) {
+        if (!img) {
             return;
         }
-        document.fonts.ready.then(function () {
-            var canvas = drawSlip(booking);
-            img.src = canvas.toDataURL("image/png");
-            overlay.classList.remove("d-none");
-        });
+        var canvas = drawSlip(booking);
+        img.src = canvas.toDataURL("image/png");
+    }
+
+    function showSlip(booking) {
+        var panel = document.getElementById("slip-panel");
+        var form = document.getElementById("book-form");
+        if (!panel) {
+            return;
+        }
+        paintSlip(booking);
+        if (form) {
+            form.classList.add("d-none");
+        }
+        panel.classList.remove("d-none");
+        panel.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(function () {
+                paintSlip(booking);
+            }).catch(function () {});
+        }
     }
 
     function hideSlip() {
-        var overlay = document.getElementById("slip-overlay");
-        if (overlay) {
-            overlay.classList.add("d-none");
+        var panel = document.getElementById("slip-panel");
+        var form = document.getElementById("book-form");
+        if (panel) {
+            panel.classList.add("d-none");
+        }
+        if (form) {
+            form.classList.remove("d-none");
         }
     }
 

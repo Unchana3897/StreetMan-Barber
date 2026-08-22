@@ -154,6 +154,7 @@
                         <p class="mb-4" data-i18n="book_page_p">เลือกบริการ ช่าง วัน และเวลา แล้วกดยืนยัน คิวจะขึ้นหน้าจอช่างทันที</p>
                         <p id="book-host-note" class="mb-4 text-primary d-none"></p>
                         <p class="mb-4 text-primary" data-i18n="hours_hint">เปิด 11:00–20:00 · ตัดผมคิวสุดท้าย 19:00 · Stacking คิวสุดท้าย 18:30</p>
+                        <p class="mb-4" data-i18n="slip_after">หลังกดยืนยัน จะมีสลิปเป็นรูปให้เซฟไว้ แล้วนำไปแสดงช่างเมื่อถึงร้าน</p>
                         <form id="book-form">
                             <div class="row g-3">
                                 <div class="col-md-6">
@@ -222,20 +223,16 @@
                                 </div>
                             </div>
                         </form>
+                        <div id="slip-panel" class="slip-panel d-none">
+                            <p class="text-primary mb-2" data-i18n="slip_done">จองสำเร็จแล้ว</p>
+                            <h2 class="h4 text-uppercase mb-3" data-i18n="slip_title">สลิปจองคิว</h2>
+                            <p class="mb-3" data-i18n="slip_hint">กดปุ่มด้านล่างเพื่อเซฟรูป หรือกดค้างที่รูปบนมือถือ</p>
+                            <img id="slip-image" alt="สลิปจองคิว StreetMan Barber">
+                            <button type="button" class="btn btn-primary w-100 py-3 mb-2" id="slip-save" data-i18n="slip_save">บันทึกรูปเพื่อแสดงช่าง</button>
+                            <button type="button" class="btn btn-outline-light w-100 py-3" id="slip-new" data-i18n="slip_new">จองคิวอีกครั้ง</button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="slip-overlay" class="slip-overlay d-none">
-        <div class="slip-card">
-            <p class="text-primary mb-2" data-i18n="slip_title">สลิปจองคิว</p>
-            <p class="mb-3" data-i18n="slip_hint">มือถือ: กดค้างที่รูปเพื่อบันทึกลงเครื่องได้</p>
-            <img id="slip-image" alt="สลิปจองคิว StreetMan Barber">
-            <div class="slip-actions">
-                <button type="button" class="btn btn-primary py-3" id="slip-save" data-i18n="slip_save">บันทึกรูปสลิป</button>
-                <button type="button" class="btn btn-outline-light py-3" id="slip-close" data-i18n="slip_close">ปิด</button>
             </div>
         </div>
     </div>

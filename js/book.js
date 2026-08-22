@@ -120,40 +120,46 @@
         }
     }
 
+    function showBookingSlip(booking) {
+        if (window.StreetManSlip) {
+            window.StreetManSlip.show(booking);
+        }
+    }
+
     function openWhatsApp() {
         var lang = window.StreetMan ? window.StreetMan.detectLang() : "th";
         var barber = barberEl.value;
+        var booking = {
+            customer_name: document.getElementById("name").value.trim(),
+            phone: document.getElementById("phone").value.trim(),
+            service: serviceEl.value,
+            barber_id: barberEl.value,
+            date: dateEl.value,
+            time: timeEl.value,
+            note: document.getElementById("note").value.trim()
+        };
         var lines = lang === "th"
             ? ["สวัสดีครับ ขอจองคิว StreetMan Barber"]
             : ["Hi StreetMan Barber, I would like to book."];
-        lines.push((lang === "th" ? "ชื่อ: " : "Name: ") + document.getElementById("name").value.trim());
-        lines.push((lang === "th" ? "เบอร์: " : "Phone: ") + document.getElementById("phone").value.trim());
-        if (serviceEl.value) {
-            lines.push((lang === "th" ? "บริการ: " : "Service: ") + t("svc_" + serviceEl.value));
+        lines.push((lang === "th" ? "ชื่อ: " : "Name: ") + booking.customer_name);
+        lines.push((lang === "th" ? "เบอร์: " : "Phone: ") + booking.phone);
+        if (booking.service) {
+            lines.push((lang === "th" ? "บริการ: " : "Service: ") + t("svc_" + booking.service));
         }
         if (barber && barber !== "any") {
             lines.push((lang === "th" ? "ช่าง: " : "Barber: ") + t("barber_" + barber));
         } else {
             lines.push(lang === "th" ? "ช่าง: ใครก็ได้ที่ว่าง" : "Barber: anyone available");
         }
-        lines.push((lang === "th" ? "วันเวลา: " : "When: ") + dateEl.value + " " + timeEl.value);
-        var extra = document.getElementById("note").value.trim();
-        if (extra) {
-            lines.push((lang === "th" ? "รายละเอียด: " : "Note: ") + extra);
+        lines.push((lang === "th" ? "วันเวลา: " : "When: ") + booking.date + " " + booking.time);
+        if (booking.note) {
+            lines.push((lang === "th" ? "รายละเอียด: " : "Note: ") + booking.note);
         }
-        window.open(window.StreetMan.waUrl(lines.join("\n")), "_blank", "noopener");
         showAlert(true, t("book_ok_wa"));
-        if (window.StreetManSlip) {
-            window.StreetManSlip.show({
-                customer_name: document.getElementById("name").value.trim(),
-                phone: document.getElementById("phone").value.trim(),
-                service: serviceEl.value,
-                barber_id: barberEl.value,
-                date: dateEl.value,
-                time: timeEl.value,
-                note: document.getElementById("note").value.trim()
-            });
-        }
+        showBookingSlip(booking);
+        window.setTimeout(function () {
+            window.open(window.StreetMan.waUrl(lines.join("\n")), "_blank", "noopener");
+        }, 400);
     }
 
     dateEl.min = todayISO();
@@ -180,7 +186,7 @@
     });
 
     var saveBtn = document.getElementById("slip-save");
-    var closeBtn = document.getElementById("slip-close");
+    var newBtn = document.getElementById("slip-new");
     if (saveBtn) {
         saveBtn.addEventListener("click", function () {
             if (window.StreetManSlip) {
@@ -188,11 +194,15 @@
             }
         });
     }
-    if (closeBtn) {
-        closeBtn.addEventListener("click", function () {
+    if (newBtn) {
+        newBtn.addEventListener("click", function () {
             if (window.StreetManSlip) {
                 window.StreetManSlip.hide();
             }
+            form.reset();
+            dateEl.value = todayISO();
+            loadSlots();
+            alertEl.classList.add("d-none");
         });
     }
 
@@ -214,12 +224,7 @@
                 return;
             }
             showAlert(true, t("book_ok") + " · " + data.booking.date + " " + data.booking.time);
-            if (window.StreetManSlip) {
-                window.StreetManSlip.show(data.booking);
-            }
-            form.reset();
-            dateEl.value = todayISO();
-            loadSlots();
+            showBookingSlip(data.booking);
         } catch (err) {
             if (err.status === 409) {
                 showAlert(false, t("book_slot_taken"));
