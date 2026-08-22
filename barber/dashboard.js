@@ -253,6 +253,88 @@
             "วันนี้ " + parts.day + "/" + parts.month + "/" + parts.year + " · " + parts.hour + ":" + parts.minute + " น.";
     }
 
+    function baht(value) {
+        return "฿" + Number(value || 0).toLocaleString("th-TH");
+    }
+
+    function monthLabel(key) {
+        var bits = String(key || "").split("-").map(Number);
+        if (!bits[0] || !bits[1]) {
+            return "เดือนนี้";
+        }
+        return new Date(bits[0], bits[1] - 1, 1).toLocaleDateString("th-TH", {
+            month: "long",
+            year: "numeric"
+        });
+    }
+
+    function isOwner(barber) {
+        return barber && (barber.role === "owner" || barber.id === "rim");
+    }
+
+    function renderMine(summary) {
+        var el = document.getElementById("my-summary");
+        summary = summary || {};
+        var day = summary.day || {};
+        var month = summary.month || {};
+        el.innerHTML =
+            "<h2>สรุปยอดของฉัน</h2>" +
+            "<div class=\"summary-grid\">" +
+            "<div class=\"summary-card\"><span>วันนี้ ตัดเสร็จ</span><strong></strong><span class=\"day-rev\"></span></div>" +
+            "<div class=\"summary-card\"><span class=\"month-title\">เดือนนี้ ตัดเสร็จ</span><strong class=\"month-done\"></strong><span class=\"month-rev\"></span></div>" +
+            "</div>";
+        el.querySelector("strong").textContent = (day.done || 0) + " คน";
+        el.querySelector(".day-rev").textContent = "คิววันนี้ " + (day.booked || 0) + " · ยอด " + baht(day.revenue);
+        el.querySelector(".month-title").textContent = monthLabel(month.key) + " ตัดเสร็จ";
+        el.querySelector(".month-done").textContent = (month.done || 0) + " คน";
+        el.querySelector(".month-rev").textContent = "ยอด " + baht(month.revenue);
+    }
+
+    function renderShop(shop, barber) {
+        var el = document.getElementById("shop-summary");
+        var link = document.getElementById("manage-link");
+        var owner = isOwner(barber);
+        link.classList.toggle("d-none", !owner);
+        if (!owner || !shop) {
+            el.className = "shop-panel d-none";
+            el.innerHTML = "";
+            return;
+        }
+        var day = shop.day || {};
+        var month = shop.month || {};
+        el.className = "shop-panel";
+        var rows = (shop.barbers || []).map(function (row) {
+            return "<tr>" +
+                "<td><strong></strong><span></span></td>" +
+                "<td></td>" +
+                "<td></td>" +
+                "</tr>";
+        }).join("");
+        el.innerHTML =
+            "<h2>ยอดร้านทั้งหมด</h2>" +
+            "<div class=\"shop-heads\"><span>วันนี้ตัดไปแล้ว</span><strong></strong>" +
+            "<span class=\"shop-day-meta\"></span></div>" +
+            "<p class=\"staff-copy shop-month-meta\"></p>" +
+            "<table class=\"shop-table\"><thead><tr><th>ช่าง</th><th>วันนี้</th><th>เดือนนี้</th></tr></thead><tbody>" +
+            rows + "</tbody></table>";
+        el.querySelector(".shop-heads strong").textContent = (day.done || 0) + " คน";
+        el.querySelector(".shop-day-meta").textContent =
+            "คิววันนี้ " + (day.booked || 0) + " · รออีก " + (day.remaining || 0) + " · ยอด " + baht(day.revenue);
+        el.querySelector(".shop-month-meta").textContent =
+            monthLabel(month.key) + " ทั้งร้านตัดเสร็จ " + (month.done || 0) + " คน · ยอด " + baht(month.revenue);
+        var bodyRows = el.querySelectorAll("tbody tr");
+        (shop.barbers || []).forEach(function (row, index) {
+            var tr = bodyRows[index];
+            if (!tr) {
+                return;
+            }
+            tr.querySelector("strong").textContent = row.name;
+            tr.querySelector("span").textContent = (row.active ? "" : "ปิดงาน · ") + row.username;
+            tr.children[1].innerHTML = (row.day.done || 0) + " คน<br><span>" + baht(row.day.revenue) + "</span>";
+            tr.children[2].innerHTML = (row.month.done || 0) + " คน<br><span>" + baht(row.month.revenue) + "</span>";
+        });
+    }
+
     function renderStats(stats) {
         stats = stats || {};
         document.getElementById("stat-pending").textContent = stats.pending || 0;
@@ -384,6 +466,8 @@
         latest = data;
         document.getElementById("barber-name").textContent = "คิวของ " + data.barber.name;
         renderStats(data.stats);
+        renderMine(data.summary);
+        renderShop(data.shop, data.barber);
         renderWeek(data.upcoming, data.date);
         renderNext(data.next);
         renderList(data.bookings || []);

@@ -6,10 +6,10 @@ const db = require("./db");
 const DEFAULT_PASSWORD = process.env.BARBER_DEFAULT_PASSWORD || "StreetMan2026";
 
 const BARBERS = [
-    { id: "rim", name: "Rim", username: "rim" },
-    { id: "bank", name: "Bank", username: "bank" },
-    { id: "rick", name: "Rick", username: "rick" },
-    { id: "dee", name: "Dee", username: "dee" }
+    { id: "rim", name: "Rim", username: "rim", role: "owner" },
+    { id: "bank", name: "Bank", username: "bank", role: "barber" },
+    { id: "rick", name: "Rick", username: "rick", role: "barber" },
+    { id: "dee", name: "Dee", username: "dee", role: "barber" }
 ];
 
 function seed() {
@@ -19,8 +19,8 @@ function seed() {
     }
     const hash = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
     const insert = db.prepare(`
-        INSERT INTO barbers (id, name, username, password_hash)
-        VALUES (@id, @name, @username, @password_hash)
+        INSERT INTO barbers (id, name, username, password_hash, role, active)
+        VALUES (@id, @name, @username, @password_hash, @role, 1)
     `);
     const tx = db.transaction(() => {
         BARBERS.forEach((barber) => {
@@ -28,7 +28,8 @@ function seed() {
                 id: barber.id,
                 name: barber.name,
                 username: barber.username,
-                password_hash: hash
+                password_hash: hash,
+                role: barber.role || "barber"
             });
         });
     });

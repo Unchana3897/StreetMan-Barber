@@ -31,6 +31,7 @@
             <button type="button" class="btn btn-outline-light" id="today-btn">วันนี้</button>
             <button type="button" class="btn btn-outline-light" id="next-day" aria-label="วันถัดไป"><i class="fa fa-chevron-right"></i></button>
             <button type="button" class="btn btn-outline-light" id="notify-btn">เปิดแจ้งเตือนมือถือ</button>
+            <a href="manage.html" class="btn btn-primary d-none" id="manage-link">จัดการช่าง</a>
             <button type="button" class="btn btn-outline-light" id="logout-btn">ออกจากระบบ</button>
         </div>
     </header>
@@ -38,6 +39,8 @@
     <div id="toast" class="queue-toast d-none"></div>
     <main class="queue-wrap dash-wrap">
         <section class="week-strip" id="week-strip" aria-label="คิว 14 วันข้างหน้า"></section>
+        <section id="shop-summary" class="shop-panel d-none"></section>
+        <section id="my-summary" class="summary-panel"></section>
         <section class="stat-grid" id="stat-grid">
             <button type="button" class="stat-card is-pending" data-filter="pending">
                 <span>รอรับ</span>

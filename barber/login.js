@@ -22,7 +22,7 @@
         if (!BARBERS[username] || password !== PASSWORD) {
             throw new Error("bad_login");
         }
-        var barber = { id: username, name: BARBERS[username], username: username };
+        var barber = { id: username, name: BARBERS[username], username: username, role: username === "rim" ? "owner" : "barber" };
         window.sessionStorage.setItem("sm_barber_session", JSON.stringify(barber));
         return barber;
     }

@@ -18,7 +18,9 @@ CREATE TABLE IF NOT EXISTS barbers (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     username TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'barber',
+    active INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS bookings (
@@ -54,5 +56,17 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
     FOREIGN KEY (barber_id) REFERENCES barbers(id)
 );
 `);
+
+function hasColumn(table, column) {
+    return db.prepare(`PRAGMA table_info(${table})`).all().some((row) => row.name === column);
+}
+
+if (!hasColumn("barbers", "role")) {
+    db.exec("ALTER TABLE barbers ADD COLUMN role TEXT NOT NULL DEFAULT 'barber'");
+}
+if (!hasColumn("barbers", "active")) {
+    db.exec("ALTER TABLE barbers ADD COLUMN active INTEGER NOT NULL DEFAULT 1");
+}
+db.prepare("UPDATE barbers SET role = 'owner' WHERE id = 'rim'").run();
 
 module.exports = db;

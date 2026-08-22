@@ -171,6 +171,41 @@
     if (params.get("service")) {
         serviceEl.value = params.get("service");
     }
+
+    function barberLabel(id, fallback) {
+        var key = "barber_" + id;
+        var label = t(key);
+        return label === key ? (fallback || id) : label;
+    }
+
+    async function loadBarbers() {
+        if (!window.StreetManStore || !window.StreetManStore.listBarbers) {
+            return;
+        }
+        try {
+            var list = await window.StreetManStore.listBarbers();
+            if (!list.length) {
+                return;
+            }
+            var wanted = params.get("barber") || barberEl.value || "any";
+            barberEl.innerHTML = "";
+            var any = document.createElement("option");
+            any.value = "any";
+            any.textContent = t("opt_any");
+            barberEl.appendChild(any);
+            list.forEach(function (row) {
+                var opt = document.createElement("option");
+                opt.value = row.id;
+                opt.textContent = barberLabel(row.id, row.name);
+                barberEl.appendChild(opt);
+            });
+            barberEl.value = wanted;
+            if (barberEl.value !== wanted) {
+                barberEl.value = "any";
+            }
+        } catch (err) {}
+    }
+
     if (params.get("barber")) {
         barberEl.value = params.get("barber");
     }
@@ -178,10 +213,11 @@
     serviceEl.addEventListener("change", loadSlots);
     barberEl.addEventListener("change", loadSlots);
     dateEl.addEventListener("change", loadSlots);
-    serverAvailable().then(function (ok) {
+    serverAvailable().then(async function (ok) {
         if (!ok) {
             showPagesNote();
         }
+        await loadBarbers();
         loadSlots();
     });
 

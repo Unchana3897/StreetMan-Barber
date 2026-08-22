@@ -3,6 +3,7 @@
 
     var SESSION_KEY = "sm_barber_session";
     var QUEUE_KEY = "sm_barber_queue";
+    var STAFF_KEY = "sm_staff";
     var PEER_PREFIX = "streetman-phuket-";
     var DEFAULT_PASSWORD = "StreetMan2026";
     var BARBERS = [
@@ -18,6 +19,14 @@
         dye: "19:30",
         mustache: "19:30",
         stacking: "18:30"
+    };
+    var PRICES = {
+        haircut: 300,
+        beard: 200,
+        shave: 200,
+        dye: 150,
+        mustache: 500,
+        stacking: 1000
     };
     var TIME_SLOTS = [
         "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
@@ -55,6 +64,119 @@
         var bits = iso.split("-").map(Number);
         var next = new Date(Date.UTC(bits[0], bits[1] - 1, bits[2] + n));
         return next.toISOString().slice(0, 10);
+    }
+
+    function readStaff() {
+        var extra = [];
+        try {
+            extra = JSON.parse(window.localStorage.getItem(STAFF_KEY) || "[]");
+            extra = Array.isArray(extra) ? extra : [];
+        } catch (err) {
+            extra = [];
+        }
+        var byId = {};
+        BARBERS.forEach(function (row) {
+            byId[row.id] = {
+                id: row.id,
+                name: row.name,
+                username: row.username,
+                role: row.id === "rim" ? "owner" : "barber",
+                active: true,
+                password: DEFAULT_PASSWORD
+            };
+        });
+        extra.forEach(function (row) {
+            if (!row || !row.id) {
+                return;
+            }
+            byId[row.id] = {
+                id: row.id,
+                name: row.name || row.id,
+                username: row.username || row.id,
+                role: row.id === "rim" ? "owner" : (row.role || "barber"),
+                active: row.active !== false,
+                password: row.password || DEFAULT_PASSWORD
+            };
+        });
+        return Object.keys(byId).map(function (id) {
+            return byId[id];
+        });
+    }
+
+    function writeStaff(rows) {
+        window.localStorage.setItem(STAFF_KEY, JSON.stringify(rows));
+    }
+
+    function activeStaff() {
+        return readStaff().filter(function (row) {
+            return row.active !== false;
+        });
+    }
+
+    function summarize(rows) {
+        var booked = rows.filter(function (row) { return row.status !== "cancelled"; });
+        var done = rows.filter(function (row) { return row.status === "done"; });
+        var remaining = rows.filter(function (row) {
+            return row.status === "pending" || row.status === "confirmed";
+        });
+        var revenue = 0;
+        done.forEach(function (row) {
+            revenue += PRICES[row.service] || 0;
+        });
+        return {
+            booked: booked.length,
+            done: done.length,
+            remaining: remaining.length,
+            cancelled: rows.filter(function (row) { return row.status === "cancelled"; }).length,
+            revenue: revenue
+        };
+    }
+
+    function monthKey(iso) {
+        return String(iso || "").slice(0, 7);
+    }
+
+    function inMonth(iso, key) {
+        return String(iso || "").slice(0, 7) === key;
+    }
+
+    function periodSummary(barberId, date) {
+        var key = monthKey(date);
+        var rows = readQueue();
+        var dayRows = rows.filter(function (row) {
+            return (!barberId || row.barber_id === barberId) && row.date === date;
+        });
+        var monthRows = rows.filter(function (row) {
+            return (!barberId || row.barber_id === barberId) && inMonth(row.date, key);
+        });
+        return {
+            day: summarize(dayRows),
+            month: Object.assign({ key: key }, summarize(monthRows))
+        };
+    }
+
+    function shopSummary(date) {
+        var key = monthKey(date);
+        return {
+            day: summarize(readQueue().filter(function (row) { return row.date === date; })),
+            month: Object.assign({ key: key }, summarize(readQueue().filter(function (row) {
+                return inMonth(row.date, key);
+            }))),
+            barbers: readStaff().map(function (barber) {
+                return {
+                    id: barber.id,
+                    name: barber.name,
+                    username: barber.username,
+                    active: barber.active !== false,
+                    day: summarize(readQueue().filter(function (row) {
+                        return row.barber_id === barber.id && row.date === date;
+                    })),
+                    month: Object.assign({ key: key }, summarize(readQueue().filter(function (row) {
+                        return row.barber_id === barber.id && inMonth(row.date, key);
+                    })))
+                };
+            })
+        };
     }
 
     function readQueue() {
@@ -139,7 +261,7 @@
     }
 
     function pickBarber(barberId, date, time) {
-        var ids = BARBERS.map(function (barber) {
+        var ids = activeStaff().map(function (barber) {
             return barber.id;
         });
         if (barberId && barberId !== "any") {
@@ -194,7 +316,22 @@
                 }).length
             });
         }
-        return { barber: barber, date: date, now: now, stats: stats, next: next, bookings: bookings, upcoming: upcoming };
+        return {
+            barber: {
+                id: barber.id,
+                name: barber.name,
+                username: barber.username,
+                role: barber.role || (barber.id === "rim" ? "owner" : "barber")
+            },
+            date: date,
+            now: now,
+            stats: stats,
+            next: next,
+            bookings: bookings,
+            upcoming: upcoming,
+            summary: periodSummary(barber.id, date),
+            shop: (barber.role === "owner" || barber.id === "rim") ? shopSummary(date) : null
+        };
     }
 
     function saveBooking(row) {
@@ -265,15 +402,15 @@
                 setSession(data.barber);
                 return data.barber;
             }
-            var barber = BARBERS.filter(function (row) {
-                return row.username === username;
+            var barber = readStaff().filter(function (row) {
+                return row.username === username && row.active !== false;
             })[0];
-            if (!barber || password !== DEFAULT_PASSWORD) {
+            if (!barber || password !== (barber.password || DEFAULT_PASSWORD)) {
                 var error = new Error("bad_login");
                 error.status = 401;
                 throw error;
             }
-            setSession({ id: barber.id, name: barber.name, username: barber.username });
+            setSession({ id: barber.id, name: barber.name, username: barber.username, role: barber.role || "barber" });
             return getSession();
         },
         logout: async function () {
@@ -356,7 +493,8 @@
                 taken.status = 409;
                 throw taken;
             }
-            var barber = BARBERS.filter(function (row) { return row.id === chosen.barberId; })[0];
+            var barber = BARBERS.filter(function (row) { return row.id === chosen.barberId; })[0]
+                || activeStaff().filter(function (row) { return row.id === chosen.barberId; })[0];
             var booking = {
                 id: Date.now(),
                 customer_name: payload.customer_name,
@@ -377,6 +515,103 @@
                 delivered = false;
             }
             return { ok: true, booking: booking, delivered: delivered };
+        },
+        listBarbers: async function () {
+            if (await usingNode()) {
+                var data = await nodeFetch("/api/barbers");
+                return data.barbers || [];
+            }
+            return activeStaff().map(function (row) {
+                return { id: row.id, name: row.name };
+            });
+        },
+        listStaff: async function () {
+            if (await usingNode()) {
+                var data = await nodeFetch("/api/owner/barbers");
+                return data.barbers || [];
+            }
+            var me = await Store.me();
+            if (me.role !== "owner" && me.id !== "rim") {
+                var denied = new Error("owner_required");
+                denied.status = 403;
+                throw denied;
+            }
+            return readStaff().map(function (row) {
+                return {
+                    id: row.id,
+                    name: row.name,
+                    username: row.username,
+                    role: row.role,
+                    active: row.active !== false
+                };
+            });
+        },
+        createStaff: async function (payload) {
+            if (await usingNode()) {
+                return nodeFetch("/api/owner/barbers", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+            }
+            await Store.me();
+            var username = String(payload.username || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+            var name = String(payload.name || "").trim();
+            var password = String(payload.password || "");
+            if (name.length < 2 || !/^[a-z0-9]{2,20}$/.test(username) || password.length < 6) {
+                var bad = new Error("bad_input");
+                bad.status = 400;
+                throw bad;
+            }
+            var rows = readStaff();
+            if (rows.some(function (row) { return row.id === username || row.username === username; })) {
+                var taken = new Error("username_taken");
+                taken.status = 409;
+                throw taken;
+            }
+            rows.push({
+                id: username,
+                name: name,
+                username: username,
+                role: "barber",
+                active: true,
+                password: password
+            });
+            writeStaff(rows);
+            return { ok: true, barber: { id: username, name: name, username: username, role: "barber", active: true } };
+        },
+        updateStaff: async function (id, payload) {
+            if (await usingNode()) {
+                return nodeFetch("/api/owner/barbers/" + encodeURIComponent(id), {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+            }
+            await Store.me();
+            var rows = readStaff();
+            var found = null;
+            rows = rows.map(function (row) {
+                if (row.id !== id) {
+                    return row;
+                }
+                found = row;
+                row.name = payload.name != null ? String(payload.name).trim() : row.name;
+                if (payload.active != null && row.role !== "owner") {
+                    row.active = payload.active !== false && payload.active !== 0 && payload.active !== "0";
+                }
+                if (payload.password) {
+                    row.password = String(payload.password);
+                }
+                return row;
+            });
+            if (!found) {
+                var missing = new Error("not_found");
+                missing.status = 404;
+                throw missing;
+            }
+            writeStaff(rows);
+            return { ok: true, barber: found };
         },
         listen: function (onBooking) {
             usingNode().then(function (ok) {

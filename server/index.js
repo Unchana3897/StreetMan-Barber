@@ -20,12 +20,12 @@ const COOKIE = "sm_session";
 app.set("trust proxy", 1);
 
 const SERVICES = {
-    haircut: { last: "19:00" },
-    beard: { last: "19:30" },
-    shave: { last: "19:30" },
-    dye: { last: "19:30" },
-    mustache: { last: "19:30" },
-    stacking: { last: "18:30" }
+    haircut: { last: "19:00", price: 300 },
+    beard: { last: "19:30", price: 200 },
+    shave: { last: "19:30", price: 200 },
+    dye: { last: "19:30", price: 150 },
+    mustache: { last: "19:30", price: 500 },
+    stacking: { last: "18:30", price: 1000 }
 };
 
 const TIME_SLOTS = [
@@ -34,7 +34,6 @@ const TIME_SLOTS = [
     "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"
 ];
 
-const BARBER_IDS = ["rim", "bank", "rick", "dee"];
 const live = new Map();
 const rate = new Map();
 
@@ -96,6 +95,112 @@ app.use(express.static(path.join(__dirname, ".."), {
     }
 }));
 
+function monthKey(iso) {
+    return String(iso || "").slice(0, 7);
+}
+
+function monthRange(iso) {
+    const key = monthKey(iso);
+    const [year, month] = key.split("-").map(Number);
+    const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    return {
+        key,
+        from: `${key}-01`,
+        to: `${key}-${String(last).padStart(2, "0")}`
+    };
+}
+
+function listBarbers(activeOnly) {
+    const sql = activeOnly
+        ? "SELECT id, name, username, role, active FROM barbers WHERE active = 1 ORDER BY CASE WHEN role = 'owner' THEN 0 ELSE 1 END, name"
+        : "SELECT id, name, username, role, active FROM barbers ORDER BY CASE WHEN role = 'owner' THEN 0 ELSE 1 END, name";
+    return db.prepare(sql).all();
+}
+
+function activeIds() {
+    return listBarbers(true).map((row) => row.id);
+}
+
+function publicBarber(row) {
+    return {
+        id: row.id,
+        name: row.name,
+        username: row.username,
+        role: row.role || "barber",
+        active: Number(row.active) === 1
+    };
+}
+
+function summarize(rows) {
+    const booked = rows.filter((row) => row.status !== "cancelled");
+    const done = rows.filter((row) => row.status === "done");
+    const remaining = rows.filter((row) => row.status === "pending" || row.status === "confirmed");
+    const byService = {};
+    let revenue = 0;
+    done.forEach((row) => {
+        const price = (SERVICES[row.service] && SERVICES[row.service].price) || 0;
+        revenue += price;
+        if (!byService[row.service]) {
+            byService[row.service] = { count: 0, revenue: 0 };
+        }
+        byService[row.service].count += 1;
+        byService[row.service].revenue += price;
+    });
+    return {
+        booked: booked.length,
+        done: done.length,
+        remaining: remaining.length,
+        cancelled: rows.filter((row) => row.status === "cancelled").length,
+        revenue
+    };
+}
+
+function bookingsBetween(barberId, from, to) {
+    if (barberId) {
+        return db.prepare(`
+            SELECT id, customer_name, phone, service, barber_id, date, time, note, status, created_at
+            FROM bookings
+            WHERE barber_id = ? AND date >= ? AND date <= ?
+            ORDER BY date, time, id
+        `).all(barberId, from, to);
+    }
+    return db.prepare(`
+        SELECT id, customer_name, phone, service, barber_id, date, time, note, status, created_at
+        FROM bookings
+        WHERE date >= ? AND date <= ?
+        ORDER BY date, time, id
+    `).all(from, to);
+}
+
+function periodSummary(barberId, date) {
+    const month = monthRange(date);
+    return {
+        day: summarize(bookingsBetween(barberId, date, date)),
+        month: Object.assign({ key: month.key }, summarize(bookingsBetween(barberId, month.from, month.to)))
+    };
+}
+
+function shopSummary(date) {
+    const month = monthRange(date);
+    const barbers = listBarbers(false);
+    return {
+        day: summarize(bookingsBetween(null, date, date)),
+        month: Object.assign({ key: month.key }, summarize(bookingsBetween(null, month.from, month.to))),
+        barbers: barbers.map((barber) => ({
+            id: barber.id,
+            name: barber.name,
+            username: barber.username,
+            active: Number(barber.active) === 1,
+            day: summarize(bookingsBetween(barber.id, date, date)),
+            month: Object.assign({ key: month.key }, summarize(bookingsBetween(barber.id, month.from, month.to)))
+        }))
+    };
+}
+
+function slugId(value) {
+    return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 function bangkokNow() {
     const parts = Object.fromEntries(
         new Intl.DateTimeFormat("en-GB", {
@@ -148,12 +253,15 @@ function readSession(req) {
         return null;
     }
     const row = db.prepare(`
-        SELECT s.token, s.barber_id, s.expires_at, b.name, b.username
+        SELECT s.token, s.barber_id, s.expires_at, b.name, b.username, b.role, b.active
         FROM sessions s
         JOIN barbers b ON b.id = s.barber_id
         WHERE s.token = ? AND s.expires_at > ?
     `).get(token, Date.now());
-    return row || null;
+    if (!row || Number(row.active) !== 1) {
+        return null;
+    }
+    return row;
 }
 
 function requireBarber(req, res, next) {
@@ -162,6 +270,13 @@ function requireBarber(req, res, next) {
         return res.status(401).json({ error: "login_required" });
     }
     req.barber = session;
+    next();
+}
+
+function requireOwner(req, res, next) {
+    if (!req.barber || req.barber.role !== "owner") {
+        return res.status(403).json({ error: "owner_required" });
+    }
     next();
 }
 
@@ -188,8 +303,9 @@ function takenSlots(barberId, date) {
 }
 
 function pickBarber(barberId, date, time) {
+    const ids = activeIds();
     if (barberId && barberId !== "any") {
-        if (!BARBER_IDS.includes(barberId)) {
+        if (!ids.includes(barberId)) {
             return null;
         }
         if (takenSlots(barberId, date).includes(time)) {
@@ -197,7 +313,7 @@ function pickBarber(barberId, date, time) {
         }
         return { barberId };
     }
-    for (const id of BARBER_IDS) {
+    for (const id of ids) {
         if (!takenSlots(id, date).includes(time)) {
             return { barberId: id };
         }
@@ -219,7 +335,7 @@ app.get("/api/slots", (req, res) => {
     }
     const possible = slotsFor(service).filter((slot) => !isPastSlot(date, slot));
     let blocked = [];
-    if (barberId !== "any" && BARBER_IDS.includes(barberId)) {
+    if (barberId !== "any" && activeIds().includes(barberId)) {
         blocked = takenSlots(barberId, date);
     }
     res.json({
@@ -293,7 +409,7 @@ app.post("/api/login", (req, res) => {
     const username = String(req.body.username || "").trim().toLowerCase();
     const password = String(req.body.password || "");
     const barber = db.prepare("SELECT * FROM barbers WHERE username = ?").get(username);
-    if (!barber || !bcrypt.compareSync(password, barber.password_hash)) {
+    if (!barber || Number(barber.active) !== 1 || !bcrypt.compareSync(password, barber.password_hash)) {
         return res.status(401).json({ error: "bad_login" });
     }
 
@@ -310,7 +426,7 @@ app.post("/api/login", (req, res) => {
         maxAge: SESSION_MS,
         path: "/"
     });
-    res.json({ ok: true, barber: { id: barber.id, name: barber.name } });
+    res.json({ ok: true, barber: { id: barber.id, name: barber.name, username: barber.username, role: barber.role || "barber" } });
 });
 
 app.post("/api/logout", (req, res) => {
@@ -327,8 +443,15 @@ app.get("/api/me", requireBarber, (req, res) => {
         barber: {
             id: req.barber.barber_id,
             name: req.barber.name,
-            username: req.barber.username
+            username: req.barber.username,
+            role: req.barber.role || "barber"
         }
+    });
+});
+
+app.get("/api/barbers", (req, res) => {
+    res.json({
+        barbers: listBarbers(true).map((row) => ({ id: row.id, name: row.name }))
     });
 });
 
@@ -390,14 +513,17 @@ app.get("/api/barber/dashboard", requireBarber, (req, res) => {
         barber: {
             id: barberId,
             name: req.barber.name,
-            username: req.barber.username
+            username: req.barber.username,
+            role: req.barber.role || "barber"
         },
         date,
         now,
         stats,
         next,
         bookings,
-        upcoming
+        upcoming,
+        summary: periodSummary(barberId, date),
+        shop: req.barber.role === "owner" ? shopSummary(date) : null
     });
 });
 
@@ -430,6 +556,69 @@ app.post("/api/barber/push-subscribe", requireBarber, (req, res) => {
 app.post("/api/barber/push-unsubscribe", requireBarber, (req, res) => {
     push.removeSubscription(req.body && req.body.endpoint);
     res.json({ ok: true });
+});
+
+app.get("/api/owner/barbers", requireBarber, requireOwner, (req, res) => {
+    res.json({ barbers: listBarbers(false).map(publicBarber) });
+});
+
+app.post("/api/owner/barbers", requireBarber, requireOwner, (req, res) => {
+    const name = String(req.body.name || "").trim().slice(0, 40);
+    const username = slugId(req.body.username);
+    const password = String(req.body.password || "");
+    if (name.length < 2) {
+        return res.status(400).json({ error: "bad_name" });
+    }
+    if (!/^[a-z0-9]{2,20}$/.test(username)) {
+        return res.status(400).json({ error: "bad_username" });
+    }
+    if (password.length < 6) {
+        return res.status(400).json({ error: "bad_password" });
+    }
+    const existing = db.prepare("SELECT id FROM barbers WHERE id = ? OR username = ?").get(username, username);
+    if (existing) {
+        return res.status(409).json({ error: "username_taken" });
+    }
+    db.prepare(`
+        INSERT INTO barbers (id, name, username, password_hash, role, active)
+        VALUES (?, ?, ?, ?, 'barber', 1)
+    `).run(username, name, username, bcrypt.hashSync(password, 10));
+    const barber = db.prepare("SELECT id, name, username, role, active FROM barbers WHERE id = ?").get(username);
+    res.status(201).json({ ok: true, barber: publicBarber(barber) });
+});
+
+app.patch("/api/owner/barbers/:id", requireBarber, requireOwner, (req, res) => {
+    const id = slugId(req.params.id);
+    const barber = db.prepare("SELECT * FROM barbers WHERE id = ?").get(id);
+    if (!barber) {
+        return res.status(404).json({ error: "not_found" });
+    }
+    const name = req.body.name != null ? String(req.body.name).trim().slice(0, 40) : barber.name;
+    if (name.length < 2) {
+        return res.status(400).json({ error: "bad_name" });
+    }
+    let active = Number(barber.active) === 1 ? 1 : 0;
+    if (req.body.active != null) {
+        active = req.body.active === true || req.body.active === 1 || req.body.active === "1" ? 1 : 0;
+    }
+    if (barber.role === "owner") {
+        active = 1;
+    }
+    const password = req.body.password != null ? String(req.body.password) : "";
+    if (password && password.length < 6) {
+        return res.status(400).json({ error: "bad_password" });
+    }
+    if (password) {
+        db.prepare("UPDATE barbers SET name = ?, active = ?, password_hash = ? WHERE id = ?")
+            .run(name, active, bcrypt.hashSync(password, 10), id);
+    } else {
+        db.prepare("UPDATE barbers SET name = ?, active = ? WHERE id = ?").run(name, active, id);
+    }
+    if (active === 0) {
+        db.prepare("DELETE FROM sessions WHERE barber_id = ?").run(id);
+    }
+    const updated = db.prepare("SELECT id, name, username, role, active FROM barbers WHERE id = ?").get(id);
+    res.json({ ok: true, barber: publicBarber(updated) });
 });
 
 app.get("/api/barber/events", requireBarber, (req, res) => {
