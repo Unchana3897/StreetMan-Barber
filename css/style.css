@@ -14,6 +14,25 @@
     z-index: 99;
 }
 
+.whatsapp-float {
+    position: fixed;
+    right: 45px;
+    bottom: 110px;
+    z-index: 99;
+    background: #25D366 !important;
+    color: #fff !important;
+    border: none;
+}
+
+.whatsapp-float:hover {
+    background: #1ebe5d !important;
+    color: #fff !important;
+}
+
+.footer a.text-light:hover {
+    color: var(--primary) !important;
+}
+
 
 /*** Spinner ***/
 #spinner {
