@@ -551,7 +551,14 @@
                     return taken.indexOf(slot) === -1;
                 });
             }
-            return possible;
+            var ids = activeStaff().map(function (row) {
+                return row.id;
+            });
+            return possible.filter(function (slot) {
+                return ids.some(function (id) {
+                    return takenSlots(id, date).indexOf(slot) === -1;
+                });
+            });
         },
         createBooking: async function (payload) {
             if (await usingNode()) {

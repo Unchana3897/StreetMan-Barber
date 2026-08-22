@@ -79,6 +79,29 @@
         alertEl.classList.remove("d-none", "alert-success", "alert-danger");
         alertEl.classList.add(ok ? "alert-success" : "alert-danger");
         alertEl.textContent = message;
+        alertEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    function isSlotTakenError(err) {
+        var code = err && ((err.body && err.body.error) || err.message);
+        return (err && err.status === 409) || code === "slot_taken" || code === "shop_full";
+    }
+
+    async function loadSlots(showDone) {
+        var service = serviceEl.value || "haircut";
+        var date = dateEl.value || todayISO();
+        var barber = barberEl.value || "any";
+        try {
+            var slots = window.StreetManStore
+                ? await window.StreetManStore.availableSlots(service, date, barber)
+                : localSlots(service, date);
+            fillSlots(slots);
+            if (showDone) {
+                showAlert(true, t("book_slots_updated"));
+            }
+        } catch (err) {
+            fillSlots(localSlots(service, date));
+        }
     }
 
     function showPagesNote() {
@@ -104,20 +127,6 @@
             useServer = false;
         }
         return useServer;
-    }
-
-    async function loadSlots() {
-        var service = serviceEl.value || "haircut";
-        var date = dateEl.value || todayISO();
-        var barber = barberEl.value || "any";
-        try {
-            var slots = window.StreetManStore
-                ? await window.StreetManStore.availableSlots(service, date, barber)
-                : localSlots(service, date);
-            fillSlots(slots);
-        } catch (err) {
-            fillSlots(localSlots(service, date));
-        }
     }
 
     function showBookingSlip(booking) {
@@ -213,6 +222,12 @@
     serviceEl.addEventListener("change", loadSlots);
     barberEl.addEventListener("change", loadSlots);
     dateEl.addEventListener("change", loadSlots);
+    var refreshSlotsBtn = document.getElementById("refresh-slots");
+    if (refreshSlotsBtn) {
+        refreshSlotsBtn.addEventListener("click", function () {
+            loadSlots(true);
+        });
+    }
     serverAvailable().then(async function (ok) {
         if (!ok) {
             showPagesNote();
@@ -262,8 +277,10 @@
             showAlert(true, t("book_ok") + " · " + data.booking.date + " " + data.booking.time);
             showBookingSlip(data.booking);
         } catch (err) {
-            if (err.status === 409) {
+            if (isSlotTakenError(err)) {
+                timeEl.value = "";
                 showAlert(false, t("book_slot_taken"));
+                window.alert(t("book_slot_taken"));
                 loadSlots();
                 return;
             }

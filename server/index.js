@@ -432,6 +432,9 @@ app.get("/api/slots", (req, res) => {
     let blocked = [];
     if (barberId !== "any" && activeIds().includes(barberId)) {
         blocked = takenSlots(barberId, date);
+    } else {
+        const ids = activeIds();
+        blocked = possible.filter((slot) => ids.length > 0 && ids.every((id) => takenSlots(id, date).includes(slot)));
     }
     res.json({
         date,

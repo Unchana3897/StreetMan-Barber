@@ -600,6 +600,10 @@
             dateEl.value = todayISO();
             load();
         });
+        document.getElementById("refresh-btn").addEventListener("click", function () {
+            load();
+            showToast("รีเฟรชคิวแล้ว");
+        });
         document.getElementById("prev-day").addEventListener("click", function () {
             dateEl.value = addDays(dateEl.value || todayISO(), -1);
             load();
