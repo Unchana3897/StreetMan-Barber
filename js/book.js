@@ -6,19 +6,73 @@
         return;
     }
 
+    var LAST_SLOT = {
+        haircut: "19:00",
+        beard: "19:30",
+        shave: "19:30",
+        dye: "19:30",
+        mustache: "19:30",
+        stacking: "18:30"
+    };
+
+    var TIME_SLOTS = [
+        "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
+        "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
+        "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"
+    ];
+
     var serviceEl = document.getElementById("service");
     var barberEl = document.getElementById("barber");
     var dateEl = document.getElementById("date");
     var timeEl = document.getElementById("time");
     var alertEl = document.getElementById("book-alert");
+    var noteEl = document.getElementById("book-host-note");
+    var useServer = null;
 
     function todayISO() {
         var now = new Date();
         return now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
     }
 
+    function nowHM() {
+        var now = new Date();
+        return String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+    }
+
     function t(key) {
         return window.StreetMan ? window.StreetMan.t(key) : key;
+    }
+
+    function onGitHubPages() {
+        return /\.github\.io$/i.test(window.location.hostname);
+    }
+
+    function localSlots(service, date) {
+        var last = LAST_SLOT[service] || "19:00";
+        var today = todayISO();
+        return TIME_SLOTS.filter(function (slot) {
+            if (slot > last) {
+                return false;
+            }
+            if (date === today && slot <= nowHM()) {
+                return false;
+            }
+            return true;
+        });
+    }
+
+    function fillSlots(slots) {
+        var current = timeEl.value;
+        timeEl.innerHTML = '<option value="">' + t("opt_time") + "</option>";
+        (slots || []).forEach(function (slot) {
+            var opt = document.createElement("option");
+            opt.value = slot;
+            opt.textContent = slot;
+            timeEl.appendChild(opt);
+        });
+        if (current && slots.indexOf(current) !== -1) {
+            timeEl.value = current;
+        }
     }
 
     function showAlert(ok, message) {
@@ -27,28 +81,71 @@
         alertEl.textContent = message;
     }
 
+    function showPagesNote() {
+        if (!noteEl) {
+            return;
+        }
+        noteEl.textContent = t("book_pages_note");
+        noteEl.classList.remove("d-none");
+    }
+
+    async function serverAvailable() {
+        if (useServer !== null) {
+            return useServer;
+        }
+        if (onGitHubPages()) {
+            useServer = false;
+            return false;
+        }
+        try {
+            var res = await fetch("/api/slots?service=haircut&date=" + encodeURIComponent(todayISO()));
+            useServer = res.ok;
+        } catch (err) {
+            useServer = false;
+        }
+        return useServer;
+    }
+
     async function loadSlots() {
         var service = serviceEl.value || "haircut";
         var date = dateEl.value || todayISO();
         var barber = barberEl.value || "any";
-        var current = timeEl.value;
+        if (!(await serverAvailable())) {
+            fillSlots(localSlots(service, date));
+            return;
+        }
         try {
             var res = await fetch("/api/slots?service=" + encodeURIComponent(service) + "&date=" + encodeURIComponent(date) + "&barber=" + encodeURIComponent(barber));
             var data = await res.json();
-            var slots = data.slots || [];
-            timeEl.innerHTML = '<option value="">' + t("opt_time") + "</option>";
-            slots.forEach(function (slot) {
-                var opt = document.createElement("option");
-                opt.value = slot;
-                opt.textContent = slot;
-                timeEl.appendChild(opt);
-            });
-            if (current && slots.indexOf(current) !== -1) {
-                timeEl.value = current;
-            }
+            fillSlots(data.slots || []);
         } catch (err) {
-            timeEl.innerHTML = '<option value="">' + t("opt_time") + "</option>";
+            fillSlots(localSlots(service, date));
         }
+    }
+
+    function openWhatsApp() {
+        var lang = window.StreetMan ? window.StreetMan.detectLang() : "th";
+        var barber = barberEl.value;
+        var lines = lang === "th"
+            ? ["สวัสดีครับ ขอจองคิว StreetMan Barber"]
+            : ["Hi StreetMan Barber, I would like to book."];
+        lines.push((lang === "th" ? "ชื่อ: " : "Name: ") + document.getElementById("name").value.trim());
+        lines.push((lang === "th" ? "เบอร์: " : "Phone: ") + document.getElementById("phone").value.trim());
+        if (serviceEl.value) {
+            lines.push((lang === "th" ? "บริการ: " : "Service: ") + t("svc_" + serviceEl.value));
+        }
+        if (barber && barber !== "any") {
+            lines.push((lang === "th" ? "ช่าง: " : "Barber: ") + t("barber_" + barber));
+        } else {
+            lines.push(lang === "th" ? "ช่าง: ใครก็ได้ที่ว่าง" : "Barber: anyone available");
+        }
+        lines.push((lang === "th" ? "วันเวลา: " : "When: ") + dateEl.value + " " + timeEl.value);
+        var extra = document.getElementById("note").value.trim();
+        if (extra) {
+            lines.push((lang === "th" ? "รายละเอียด: " : "Note: ") + extra);
+        }
+        window.open(window.StreetMan.waUrl(lines.join("\n")), "_blank", "noopener");
+        showAlert(true, t("book_ok_wa"));
     }
 
     dateEl.min = todayISO();
@@ -67,10 +164,19 @@
     serviceEl.addEventListener("change", loadSlots);
     barberEl.addEventListener("change", loadSlots);
     dateEl.addEventListener("change", loadSlots);
-    loadSlots();
+    serverAvailable().then(function (ok) {
+        if (!ok) {
+            showPagesNote();
+        }
+        loadSlots();
+    });
 
     form.addEventListener("submit", async function (e) {
         e.preventDefault();
+        if (!(await serverAvailable())) {
+            openWhatsApp();
+            return;
+        }
         try {
             var res = await fetch("/api/bookings", {
                 method: "POST",
@@ -99,7 +205,7 @@
             dateEl.value = todayISO();
             loadSlots();
         } catch (err) {
-            showAlert(false, t("book_fail"));
+            openWhatsApp();
         }
     });
 })();
