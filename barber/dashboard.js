@@ -106,6 +106,11 @@
 
     function renderPushHint() {
         var hint = document.getElementById("push-hint");
+        if (window.StreetManStore && window.StreetManStore.onGitHubPages()) {
+            hint.textContent = "เปิดหน้านี้ค้างไว้บนมือถือ คิวใหม่จะเด้งที่นี่ แนะนำให้เพิ่มไปยังหน้าจอโฮม";
+            hint.classList.remove("d-none");
+            return;
+        }
         if (isIos() && !isStandalone()) {
             hint.textContent = "iPhone: กดแชร์ → เพิ่มไปยังหน้าจอโฮม แล้วเปิดแอปคิวช่างจากไอคอน แล้วค่อยกดเปิดแจ้งเตือนมือถือ";
             hint.classList.remove("d-none");
@@ -128,6 +133,10 @@
     }
 
     async function syncPushState() {
+        if (window.StreetManStore && !(await window.StreetManStore.usingNode())) {
+            setNotifyBtn("เปิดแจ้งเตือนบนมือถือ", true);
+            return;
+        }
         var btn = document.getElementById("notify-btn");
         if (isIos() && !isStandalone()) {
             setNotifyBtn("เพิ่มไปหน้าจอโฮมก่อน", false);
@@ -158,8 +167,18 @@
     }
 
     async function enablePush() {
-        if (isIos() && !isStandalone()) {
-            showToast("iPhone ต้องเพิ่มไปยังหน้าจอโฮมก่อน แล้วเปิดจากไอคอน");
+        if (window.StreetManStore && !(await window.StreetManStore.usingNode())) {
+            if (!window.Notification) {
+                showToast("เบราว์เซอร์นี้ยังไม่รองรับการแจ้งเตือน");
+                return;
+            }
+            var localPerm = await Notification.requestPermission();
+            if (localPerm !== "granted") {
+                showToast("ยังไม่ได้อนุญาตการแจ้งเตือน");
+                return;
+            }
+            setNotifyBtn("แจ้งเตือนเปิดแล้ว เปิดหน้านี้ค้างไว้", false);
+            showToast("เปิดหน้า Dashboard ค้างไว้ คิวใหม่จะเด้งบนมือถือ");
             return;
         }
         if (!window.Notification || !("PushManager" in window)) {
@@ -202,6 +221,24 @@
     }
 
     async function api(url, options) {
+        if (url.indexOf("/api/barber/dashboard") === 0) {
+            var date = (url.split("date=")[1] || "").split("&")[0];
+            return window.StreetManStore.dashboard(decodeURIComponent(date));
+        }
+        if (url.indexOf("/api/barber/bookings/") === 0 && options && options.method === "PATCH") {
+            var id = Number(url.split("/").pop());
+            var body = JSON.parse(options.body || "{}");
+            return window.StreetManStore.updateStatus(id, body.status);
+        }
+        if (url === "/api/me") {
+            var barber = await window.StreetManStore.me();
+            return { barber: barber };
+        }
+        if (url === "/api/barber/push-key" || url === "/api/barber/push-subscribe") {
+            if (!(await window.StreetManStore.usingNode())) {
+                throw new Error("pages");
+            }
+        }
         var res = await fetch(url, Object.assign({ credentials: "same-origin" }, options || {}));
         if (res.status === 401) {
             window.location.href = "login.html";
@@ -385,6 +422,7 @@
     }
 
     async function boot() {
+        await window.StreetManStore.me();
         tickClock();
         setInterval(tickClock, 15000);
         dateEl.value = todayISO();
@@ -419,24 +457,14 @@
             });
         });
         document.getElementById("logout-btn").addEventListener("click", async function () {
-            await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
+            await window.StreetManStore.logout();
             window.location.href = "login.html";
         });
         document.getElementById("notify-btn").addEventListener("click", function () {
             enablePush();
         });
 
-        if (window.EventSource) {
-            var source = new EventSource("/api/barber/events");
-            source.onmessage = function (event) {
-                try {
-                    var payload = JSON.parse(event.data);
-                    if (payload.type === "new_booking") {
-                        onNewBooking(payload.booking);
-                    }
-                } catch (err) {}
-            };
-        }
+        window.StreetManStore.listen(onNewBooking);
 
         setInterval(load, 15000);
     }

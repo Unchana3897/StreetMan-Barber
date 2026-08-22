@@ -10,7 +10,7 @@ self.addEventListener("push", (event) => {
     let data = {
         title: "StreetMan Barber",
         body: "มีคิวใหม่",
-        url: "/barber/dashboard.html"
+        url: "dashboard.html"
     };
     try {
         if (event.data) {
@@ -20,16 +20,16 @@ self.addEventListener("push", (event) => {
     event.waitUntil(
         self.registration.showNotification(data.title, {
             body: data.body,
-            icon: "/img/logo.PNG",
-            badge: "/img/logo.PNG",
-            data: { url: data.url || "/barber/dashboard.html" }
+            icon: "../img/logo.PNG",
+            badge: "../img/logo.PNG",
+            data: { url: data.url || "dashboard.html" }
         })
     );
 });
 
 self.addEventListener("notificationclick", (event) => {
     event.notification.close();
-    const url = (event.notification.data && event.notification.data.url) || "/barber/dashboard.html";
+    const url = (event.notification.data && event.notification.data.url) || "dashboard.html";
     event.waitUntil(
         self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
             for (let i = 0; i < clients.length; i += 1) {

@@ -110,14 +110,11 @@
         var service = serviceEl.value || "haircut";
         var date = dateEl.value || todayISO();
         var barber = barberEl.value || "any";
-        if (!(await serverAvailable())) {
-            fillSlots(localSlots(service, date));
-            return;
-        }
         try {
-            var res = await fetch("/api/slots?service=" + encodeURIComponent(service) + "&date=" + encodeURIComponent(date) + "&barber=" + encodeURIComponent(barber));
-            var data = await res.json();
-            fillSlots(data.slots || []);
+            var slots = window.StreetManStore
+                ? await window.StreetManStore.availableSlots(service, date, barber)
+                : localSlots(service, date);
+            fillSlots(slots);
         } catch (err) {
             fillSlots(localSlots(service, date));
         }
@@ -173,38 +170,31 @@
 
     form.addEventListener("submit", async function (e) {
         e.preventDefault();
-        if (!(await serverAvailable())) {
-            openWhatsApp();
-            return;
-        }
+        var payload = {
+            customer_name: document.getElementById("name").value.trim(),
+            phone: document.getElementById("phone").value.trim(),
+            service: serviceEl.value,
+            barber: barberEl.value,
+            date: dateEl.value,
+            time: timeEl.value,
+            note: document.getElementById("note").value.trim()
+        };
         try {
-            var res = await fetch("/api/bookings", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    customer_name: document.getElementById("name").value.trim(),
-                    phone: document.getElementById("phone").value.trim(),
-                    service: serviceEl.value,
-                    barber: barberEl.value,
-                    date: dateEl.value,
-                    time: timeEl.value,
-                    note: document.getElementById("note").value.trim()
-                })
-            });
-            var data = await res.json();
-            if (res.status === 409) {
-                showAlert(false, t("book_slot_taken"));
-                loadSlots();
+            var data = await window.StreetManStore.createBooking(payload);
+            if (data.delivered === false && !(await window.StreetManStore.usingNode())) {
+                openWhatsApp();
                 return;
-            }
-            if (!res.ok) {
-                throw new Error(data.error || "fail");
             }
             showAlert(true, t("book_ok") + " · " + data.booking.date + " " + data.booking.time);
             form.reset();
             dateEl.value = todayISO();
             loadSlots();
         } catch (err) {
+            if (err.status === 409) {
+                showAlert(false, t("book_slot_taken"));
+                loadSlots();
+                return;
+            }
             openWhatsApp();
         }
     });

@@ -2,20 +2,20 @@
   "name": "StreetMan Barber — คิวช่าง",
   "short_name": "คิวช่าง",
   "description": "ดูคิวของตัวเองและรับแจ้งเตือนเมื่อลูกค้าจอง",
-  "start_url": "/barber/dashboard.html",
-  "scope": "/barber/",
+  "start_url": "dashboard.html",
+  "scope": ".",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#EB1616",
   "lang": "th",
   "icons": [
     {
-      "src": "/img/logo.PNG",
+      "src": "../img/logo.PNG",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/img/logo.PNG",
+      "src": "../img/logo.PNG",
       "sizes": "512x512",
       "type": "image/png"
     }
