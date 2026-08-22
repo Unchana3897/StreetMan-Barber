@@ -126,8 +126,147 @@
     text-align: center;
 }
 
+.dash-wrap {
+    max-width: 980px;
+}
+
+.week-strip {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+}
+
+.week-day {
+    min-width: 72px;
+    background: #191C24;
+    border: 0;
+    color: #fff;
+    padding: 10px 8px;
+    text-align: center;
+}
+
+.week-day small,
+.week-day span {
+    display: block;
+    color: #6C7293;
+    font-size: 12px;
+}
+
+.week-day strong {
+    display: block;
+    font-size: 20px;
+    font-family: Oswald, "Noto Sans Thai", sans-serif;
+}
+
+.week-day.has-queue span {
+    color: #EB1616;
+}
+
+.week-day.is-active {
+    outline: 1px solid #EB1616;
+}
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    background: #191C24;
+    border: 0;
+    color: #fff;
+    text-align: left;
+    padding: 16px 18px;
+}
+
+.stat-card span {
+    display: block;
+    color: #6C7293;
+    font-size: 13px;
+}
+
+.stat-card strong {
+    font-size: 32px;
+    font-family: Oswald, "Noto Sans Thai", sans-serif;
+    line-height: 1.1;
+}
+
+.stat-card.is-pending strong {
+    color: #EB1616;
+}
+
+.next-card {
+    background: #191C24;
+    padding: 20px;
+    margin-bottom: 20px;
+    outline: 1px solid #EB1616;
+}
+
+.next-card h2 {
+    margin: 0 0 4px;
+    font-size: 28px;
+}
+
+.next-main {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.next-card .queue-time {
+    font-size: 36px;
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.filter-btn {
+    background: #191C24;
+    border: 0;
+    color: #6C7293;
+    padding: 8px 14px;
+}
+
+.filter-btn.active {
+    color: #fff;
+    outline: 1px solid #EB1616;
+}
+
+.queue-contacts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.queue-card.is-cancelled {
+    opacity: 0.55;
+}
+
+.queue-card.is-done .queue-status {
+    color: #6C7293;
+}
+
+.queue-card.is-pending .queue-status {
+    color: #EB1616;
+}
+
 @media (max-width: 700px) {
-    .queue-card {
+    .queue-card,
+    .next-main {
         grid-template-columns: 1fr;
+        display: block;
+    }
+
+    .stat-grid {
+        grid-template-columns: 1fr 1fr;
     }
 }

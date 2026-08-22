@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="utf-8">
+    <title>Dashboard ช่าง | StreetMan Barber</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../img/logo.PNG">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Oswald:wght@600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <link href="queue.css" rel="stylesheet">
+</head>
+<body class="staff-body queue-body dash-body">
+    <header class="queue-top">
+        <div>
+            <p class="staff-kicker mb-1">StreetMan Barber · Dashboard</p>
+            <h1 id="barber-name">คิวของฉัน</h1>
+            <p class="staff-copy mb-0" id="clock">—</p>
+        </div>
+        <div class="queue-top-actions">
+            <button type="button" class="btn btn-outline-light" id="prev-day" aria-label="วันก่อนหน้า"><i class="fa fa-chevron-left"></i></button>
+            <input type="date" id="queue-date" class="form-control">
+            <button type="button" class="btn btn-outline-light" id="today-btn">วันนี้</button>
+            <button type="button" class="btn btn-outline-light" id="next-day" aria-label="วันถัดไป"><i class="fa fa-chevron-right"></i></button>
+            <button type="button" class="btn btn-outline-light" id="notify-btn">เปิดแจ้งเตือน</button>
+            <button type="button" class="btn btn-outline-light" id="logout-btn">ออกจากระบบ</button>
+        </div>
+    </header>
+    <div id="toast" class="queue-toast d-none"></div>
+    <main class="queue-wrap dash-wrap">
+        <section class="week-strip" id="week-strip" aria-label="คิว 14 วันข้างหน้า"></section>
+        <section class="stat-grid" id="stat-grid">
+            <button type="button" class="stat-card is-pending" data-filter="pending">
+                <span>รอรับ</span>
+                <strong id="stat-pending">0</strong>
+            </button>
+            <button type="button" class="stat-card is-confirmed" data-filter="confirmed">
+                <span>ยืนยันแล้ว</span>
+                <strong id="stat-confirmed">0</strong>
+            </button>
+            <button type="button" class="stat-card is-done" data-filter="done">
+                <span>เสร็จแล้ว</span>
+                <strong id="stat-done">0</strong>
+            </button>
+            <button type="button" class="stat-card" data-filter="all">
+                <span>คิววันนี้</span>
+                <strong id="stat-total">0</strong>
+            </button>
+        </section>
+        <section id="next-card" class="next-card d-none"></section>
+        <div class="filter-row" role="tablist">
+            <button type="button" class="filter-btn active" data-filter="all">ทั้งหมด</button>
+            <button type="button" class="filter-btn" data-filter="pending">รอรับ</button>
+            <button type="button" class="filter-btn" data-filter="confirmed">ยืนยันแล้ว</button>
+            <button type="button" class="filter-btn" data-filter="done">เสร็จแล้ว</button>
+            <button type="button" class="filter-btn" data-filter="cancelled">ยกเลิก</button>
+        </div>
+        <p id="empty" class="staff-copy">ยังไม่มีคิววันนี้</p>
+        <div id="queue-list"></div>
+    </main>
+    <script src="dashboard.js"></script>
+</body>
+</html>

@@ -16,7 +16,7 @@ document.getElementById("login-form").addEventListener("submit", async function 
         if (!res.ok) {
             throw new Error(data.error === "bad_login" ? "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูก" : "เข้าสู่ระบบไม่สำเร็จ");
         }
-        window.location.href = "queue.html";
+        window.location.href = "dashboard.html";
     } catch (err) {
         error.textContent = err.message || "เข้าสู่ระบบไม่สำเร็จ";
         error.classList.remove("d-none");

@@ -75,6 +75,13 @@ app.get("/sitemap.xml", (req, res) => {
     );
 });
 
+app.get("/barber", (req, res) => {
+    res.redirect("/barber/login.html");
+});
+app.get("/barber/", (req, res) => {
+    res.redirect("/barber/login.html");
+});
+
 app.use(express.static(path.join(__dirname, ".."), {
     extensions: ["html"],
     setHeaders(res, filePath) {
@@ -104,6 +111,12 @@ function bangkokNow() {
 
 function todayISO() {
     return bangkokNow().date;
+}
+
+function addDays(iso, n) {
+    const [year, month, day] = iso.split("-").map(Number);
+    const next = new Date(Date.UTC(year, month - 1, day + n));
+    return next.toISOString().slice(0, 10);
 }
 
 function slotsFor(service) {
@@ -324,6 +337,64 @@ app.get("/api/barber/bookings", requireBarber, (req, res) => {
     res.json({ date, bookings: rows });
 });
 
+app.get("/api/barber/dashboard", requireBarber, (req, res) => {
+    const date = String(req.query.date || todayISO());
+    const barberId = req.barber.barber_id;
+    const now = bangkokNow();
+    const bookings = db.prepare(`
+        SELECT id, customer_name, phone, service, barber_id, date, time, note, status, created_at
+        FROM bookings
+        WHERE barber_id = ? AND date = ?
+        ORDER BY time ASC, id ASC
+    `).all(barberId, date);
+
+    const stats = {
+        total: bookings.length,
+        pending: bookings.filter((row) => row.status === "pending").length,
+        confirmed: bookings.filter((row) => row.status === "confirmed").length,
+        done: bookings.filter((row) => row.status === "done").length,
+        cancelled: bookings.filter((row) => row.status === "cancelled").length
+    };
+    stats.remaining = stats.pending + stats.confirmed;
+
+    const active = bookings.filter((row) => row.status === "pending" || row.status === "confirmed");
+    let next = null;
+    if (date === now.date) {
+        next = active.find((row) => row.time >= now.time) || null;
+    } else if (date > now.date) {
+        next = active[0] || null;
+    }
+
+    const from = todayISO();
+    const upcomingRows = db.prepare(`
+        SELECT date, COUNT(*) AS count
+        FROM bookings
+        WHERE barber_id = ? AND date >= ? AND date <= ? AND status != 'cancelled'
+        GROUP BY date
+        ORDER BY date
+    `).all(barberId, from, addDays(from, 13));
+    const upcomingMap = new Map(upcomingRows.map((row) => [row.date, row.count]));
+    const upcoming = [];
+    for (let i = 0; i < 14; i += 1) {
+        const day = addDays(from, i);
+        upcoming.push({ date: day, count: upcomingMap.get(day) || 0 });
+    }
+
+    res.json({
+        barber: {
+            id: barberId,
+            name: req.barber.name,
+            username: req.barber.username
+        },
+        date,
+        now,
+        stats,
+        next,
+        bookings,
+        upcoming
+    });
+});
+
 app.patch("/api/barber/bookings/:id", requireBarber, (req, res) => {
     const id = Number(req.params.id);
     const status = String(req.body.status || "");
@@ -376,4 +447,5 @@ app.listen(PORT, () => {
     console.log(`StreetMan Barber running at http://localhost:${PORT}`);
     console.log("Customer booking: /book.html");
     console.log("Barber login: /barber/login.html");
+    console.log("Barber dashboard: /barber/dashboard.html");
 });
