@@ -255,7 +255,7 @@
         },
         login: async function (username, password) {
             username = String(username || "").trim().toLowerCase();
-            password = String(password || "");
+            password = String(password || "").trim();
             if (await usingNode()) {
                 var data = await nodeFetch("/api/login", {
                     method: "POST",
