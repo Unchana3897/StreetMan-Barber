@@ -18,12 +18,14 @@
             crumb_home: "หน้าแรก",
             btn_call: "โทร",
             btn_wa: "WhatsApp",
+            btn_facebook: "เฟซบุ๊ก",
+            btn_instagram: "อินสตาแกรม",
             btn_email: "อีเมล",
             btn_directions: "แผนที่",
             book_this: "จองคิวนี้",
             book_wa: "จองทาง WhatsApp",
             wa_float: "คุยทาง WhatsApp",
-            wa_quick: "สวัสดีครับ ขอจองคิว StreetMan Barber",
+            wa_quick: "สวัสดีครับ ขอจองคิว StreetMan Barber\nรบกวนช่วยนัดวันและเวลาที่สะดวกด้วยครับ",
             hero1_title: "ตัดให้ดูดีทุกครั้ง",
             hero2_title: "ตัดสวย ราคาชัดเจน",
             hero_hours: "เปิดทุกวัน 11:00–20:00",
@@ -31,8 +33,8 @@
             about_title: "มากกว่าแค่ตัดผม",
             about_title_page: "ร้านตัดผมภูเก็ต สำหรับลูกค้าประจำ",
             about_p1: "StreetMan Barber เป็นร้านในย่านวิชิต อ.เมืองภูเก็ต ตัดเนี๊ยบ บรรยากาศสบาย ไม่รีบ ไม่ยัดเยียดบริการ — สำหรับคนท้องถิ่น ชาวต่างชาติ และนักท่องเที่ยว",
-            about_p2: "วอล์กอินได้ หรือจองผ่านฟอร์มแล้วส่ง WhatsApp เปิดทุกวัน 11:00–20:00",
-            about_p2_page: "ทีมนำโดยริม มีแบงค์ ริค และดี วอล์กอินได้ หรือจองผ่านฟอร์ม เปิดทุกวัน 11:00–20:00",
+            about_p2: "วอล์กอินได้ หรือจองออนไลน์ ช่างเห็นคิวทันที เปิดทุกวัน 11:00–20:00",
+            about_p2_page: "ทีมนำโดยริม มีแบงค์ ริค และดี วอล์กอินได้ หรือจองออนไลน์ เปิดทุกวัน 11:00–20:00",
             about_stat: "เปิดร้าน",
             about_stat_sub: "ตั้งแต่ 2021",
             about_since: "ตั้งแต่ 2021",
@@ -94,8 +96,25 @@
             footer_walkin: "วอล์กอินได้ ช่วงร้านหนาแน่น โทรหรือ WhatsApp จะเร็วกว่า",
             footer_copy: "สงวนลิขสิทธิ์",
             contact_badge: "ติดต่อเรา",
-            contact_title: "จองคิว หรือสอบถาม",
-            contact_p: "วอล์กอินได้ ถ้าอยากล็อกเก้าอี้ กรอกฟอร์มแล้วส่งเข้า WhatsApp ข้อความจะครบให้ช่างอ่านเลย",
+            contact_title: "จองคิวหรือคุยกับร้าน",
+            contact_p: "จองออนไลน์แล้วคิวขึ้นหน้าจอช่างทันที หรือทัก WhatsApp / โทรถ้ามีคำถาม",
+            book_step1: "1. กรอกชื่อ บริการ วันเวลา",
+            book_step2: "2. กดยืนยันจองคิว",
+            book_step3: "3. ช่างเห็นคิวของตัวเองทันที",
+            book_pick_service: "เลือกบริการแล้วจองเลย",
+            book_pick_barber: "หรือจองกับช่างที่ต้องการ",
+            wa_ask_time: "รบกวนช่วยนัดวันและเวลาที่สะดวกด้วยครับ",
+            submit_wa: "เปิด WhatsApp เพื่อจอง",
+            opt_any: "ใครก็ได้ที่ว่าง",
+            barber_rim: "คุณริม",
+            barber_bank: "คุณแบงค์",
+            barber_rick: "คุณริค",
+            barber_dee: "คุณดี",
+            hours_hint: "เปิด 11:00–20:00 · ตัดผมคิวสุดท้าย 19:00 · Stacking คิวสุดท้าย 18:30",
+            page_contact: "ติดต่อ",
+            page_book: "จองคิว",
+            book_page_title: "จองคิวออนไลน์",
+            book_page_p: "เลือกบริการ ช่าง วัน และเวลา แล้วกดยืนยัน คิวจะขึ้นหน้าจอช่างทันที",
             label_name: "ชื่อ",
             label_phone: "เบอร์โทร",
             label_service: "บริการ",
@@ -103,19 +122,13 @@
             label_date: "วันที่",
             label_time: "เวลา",
             label_note: "รายละเอียดเพิ่ม (ไม่บังคับ)",
-            note_placeholder: "เช่น อยากได้เฟดสั้น / มาเป็นคู่",
             opt_service: "เลือกบริการ",
             opt_time: "เลือกเวลา",
-            opt_any: "ใครก็ได้ที่ว่าง",
-            barber_rim: "คุณริม",
-            barber_bank: "คุณแบงค์",
-            barber_rick: "คุณริค",
-            barber_dee: "คุณดี",
-            submit_wa: "ส่งจองทาง WhatsApp",
-            form_need: "กรุณากรอกชื่อ บริการ วัน และเวลา",
-            form_opening: "กำลังเปิด WhatsApp พร้อมข้อความจอง...",
-            hours_hint: "เปิด 11:00–20:00 · ตัดผมคิวสุดท้าย 19:00 · Stacking คิวสุดท้าย 18:30",
-            page_contact: "ติดต่อ",
+            submit_book: "ยืนยันจองคิว",
+            book_ok: "จองสำเร็จแล้ว ช่างจะเห็นคิวนี้ทันที",
+            book_fail: "จองไม่สำเร็จ ลองเวลาอื่น หรือโทร 062-525-8941",
+            book_slot_taken: "เวลานี้มีคนจองแล้ว เลือกช่องอื่นได้เลย",
+            staff_login: "สำหรับช่าง",
             page_about: "เกี่ยวกับเรา",
             page_service: "บริการ",
             page_price: "ราคา",
@@ -125,13 +138,14 @@
             err_404_title: "ไม่พบหน้านี้",
             err_404_p: "ไม่มีหน้านี้ในเว็บ StreetMan Barber กลับหน้าแรกหรือจองคิวจากที่นั่น",
             err_404_btn: "กลับหน้าแรก",
-            title_home: "StreetMan Barber | ภูเก็ต",
+            title_home: "ร้านตัดผม StreetMan Barber ภูเก็ต | วิชิต",
             title_about: "เกี่ยวกับเรา | StreetMan Barber ภูเก็ต",
             title_service: "บริการ | StreetMan Barber ภูเก็ต",
             title_price: "ราคา | StreetMan Barber ภูเก็ต",
             title_team: "ช่าง | StreetMan Barber ภูเก็ต",
             title_hours: "เวลาเปิด | StreetMan Barber ภูเก็ต",
-            title_contact: "จองคิว | StreetMan Barber ภูเก็ต",
+            title_contact: "ติดต่อ | StreetMan Barber ภูเก็ต",
+            title_book: "จองคิวออนไลน์ | StreetMan Barber ภูเก็ต",
             title_reviews: "รีวิว | StreetMan Barber ภูเก็ต",
             title_404: "ไม่พบหน้า | StreetMan Barber"
         },
@@ -147,12 +161,14 @@
             crumb_home: "Home",
             btn_call: "Call",
             btn_wa: "WhatsApp",
+            btn_facebook: "Facebook",
+            btn_instagram: "Instagram",
             btn_email: "Email",
             btn_directions: "Directions",
             book_this: "Book this",
             book_wa: "Book on WhatsApp",
             wa_float: "Chat on WhatsApp",
-            wa_quick: "Hi StreetMan Barber, I would like to book a cut.",
+            wa_quick: "Hi StreetMan Barber, I would like to book a cut.\nPlease let me know a day and time that works.",
             hero1_title: "We Will Keep You An Awesome Look",
             hero2_title: "Luxury Haircut at Affordable Price",
             hero_hours: "Open every day 11:00–20:00",
@@ -160,8 +176,8 @@
             about_title: "More Than Just A Haircut",
             about_title_page: "A Phuket Barbershop Built For Regulars",
             about_p1: "StreetMan Barber is a neighborhood shop in Wichit, Mueang Phuket. We keep the cut clean and the vibe easy — no rush, no upsell, just a proper barbershop for locals, expats, and travelers.",
-            about_p2: "Walk in or book on the form — it opens WhatsApp. Open every day from 11:00 AM to 8:00 PM.",
-            about_p2_page: "The team is led by Rim, with Bank, Rick, and Dee on the chairs. Walk in or book through the form. We are open every day from 11:00 AM to 8:00 PM.",
+            about_p2: "Walk in or book online — your barber sees the queue right away. Open every day from 11:00 AM to 8:00 PM.",
+            about_p2_page: "The team is led by Rim, with Bank, Rick, and Dee on the chairs. Walk in or book online. We are open every day from 11:00 AM to 8:00 PM.",
             about_stat: "Open since",
             about_stat_sub: "2021",
             about_since: "Since 2021",
@@ -223,28 +239,39 @@
             footer_walkin: "Walk-ins welcome. Phone or WhatsApp is faster during peak hours.",
             footer_copy: "All Rights Reserved",
             contact_badge: "Contact Us",
-            contact_title: "Book A Cut Or Ask A Question",
-            contact_p: "Walk-ins are welcome. To reserve a chair, fill the form — it opens WhatsApp with every detail the barber needs.",
+            contact_title: "Book or message the shop",
+            contact_p: "Book online and the barber sees your slot at once. WhatsApp or call if you have a question.",
+            book_step1: "1. Pick service, barber, day and time",
+            book_step2: "2. Confirm the booking",
+            book_step3: "3. Your barber sees only their own queue",
+            book_pick_service: "Pick a service and book now",
+            book_pick_barber: "Or book with a barber",
+            wa_ask_time: "Please let me know a day and time that works.",
+            submit_wa: "Open WhatsApp to book",
+            opt_any: "Anyone available",
+            barber_rim: "Rim",
+            barber_bank: "Bank",
+            barber_rick: "Rick",
+            barber_dee: "Dee",
+            hours_hint: "Open 11:00–20:00 · last haircut 19:00 · last stacking 18:30",
+            page_contact: "Contact",
+            page_book: "Book",
+            book_page_title: "Book online",
+            book_page_p: "Pick a service, barber, day and time. The barber sees your booking on their queue right away.",
             label_name: "Your name",
             label_phone: "Phone",
             label_service: "Service",
             label_barber: "Barber",
             label_date: "Date",
             label_time: "Time",
-            label_note: "Extra detail (optional)",
-            note_placeholder: "e.g. short fade / coming as a pair",
+            label_note: "Note (optional)",
             opt_service: "Choose a service",
             opt_time: "Choose a time",
-            opt_any: "Anyone available",
-            barber_rim: "Rim",
-            barber_bank: "Bank",
-            barber_rick: "Rick",
-            barber_dee: "Dee",
-            submit_wa: "Send on WhatsApp",
-            form_need: "Please enter your name, service, date, and time.",
-            form_opening: "Opening WhatsApp with your booking...",
-            hours_hint: "Open 11:00–20:00 · last haircut 19:00 · last stacking 18:30",
-            page_contact: "Contact",
+            submit_book: "Confirm booking",
+            book_ok: "Booked. Your barber will see this on their queue now.",
+            book_fail: "Could not book. Try another time or call 062-525-8941.",
+            book_slot_taken: "That slot is taken. Please pick another time.",
+            staff_login: "Barber login",
             page_about: "About",
             page_service: "Services",
             page_price: "Prices",
@@ -254,13 +281,14 @@
             err_404_title: "Page Not Found",
             err_404_p: "This page is not on the StreetMan Barber site. Head home or book a cut from there.",
             err_404_btn: "Go Back To Home",
-            title_home: "StreetMan Barber | Phuket",
+            title_home: "StreetMan Barber Phuket | Wichit barbershop",
             title_about: "About | StreetMan Barber Phuket",
             title_service: "Services | StreetMan Barber Phuket",
             title_price: "Prices | StreetMan Barber Phuket",
             title_team: "Barbers | StreetMan Barber Phuket",
             title_hours: "Hours | StreetMan Barber Phuket",
-            title_contact: "Book | StreetMan Barber Phuket",
+            title_contact: "Contact | StreetMan Barber Phuket",
+            title_book: "Book online | StreetMan Barber Phuket",
             title_reviews: "Reviews | StreetMan Barber Phuket",
             title_404: "Page not found | StreetMan Barber"
         }
@@ -342,63 +370,42 @@
             el.setAttribute("href", waUrl(t("wa_quick", lang)));
         });
 
+        document.querySelectorAll(".js-wa-book").forEach(function (el) {
+            el.setAttribute("href", waUrl(buildSimpleBookText({
+                service: el.getAttribute("data-service") || "",
+                barber: el.getAttribute("data-barber") || ""
+            }, lang)));
+        });
+
         document.querySelectorAll(".lang-btn").forEach(function (btn) {
             btn.classList.toggle("active", btn.getAttribute("data-lang") === lang);
         });
     }
 
-    function buildBookingText(data, lang) {
+    function buildSimpleBookText(data, lang) {
         lang = lang || detectLang();
-        var serviceLabel = t("svc_" + data.service, lang);
-        var barberLabel = data.barber === "any" || !data.barber
-            ? t("opt_any", lang)
-            : t("barber_" + data.barber, lang);
+        var lines = lang === "th"
+            ? ["สวัสดีครับ ขอจองคิว StreetMan Barber"]
+            : ["Hi StreetMan Barber, I would like to book."];
 
-        var lines;
-        if (lang === "th") {
-            lines = [
-                "สวัสดีครับ ขอจองคิว StreetMan Barber",
-                "ชื่อ: " + data.name,
-                "บริการ: " + serviceLabel,
-                "ช่าง: " + barberLabel,
-                "วันที่: " + data.date,
-                "เวลา: " + data.time
-            ];
-            if (data.phone) {
-                lines.push("เบอร์: " + data.phone);
-            }
-            if (data.note) {
-                lines.push("หมายเหตุ: " + data.note);
-            }
-        } else {
-            lines = [
-                "Hi StreetMan Barber, I would like to book.",
-                "Name: " + data.name,
-                "Service: " + serviceLabel,
-                "Barber: " + barberLabel,
-                "Date: " + data.date,
-                "Time: " + data.time
-            ];
-            if (data.phone) {
-                lines.push("Phone: " + data.phone);
-            }
-            if (data.note) {
-                lines.push("Note: " + data.note);
-            }
+        if (data.service) {
+            lines.push((lang === "th" ? "บริการ: " : "Service: ") + t("svc_" + data.service, lang));
         }
+        if (data.barber) {
+            lines.push((lang === "th" ? "ช่าง: " : "Barber: ") + t("barber_" + data.barber, lang));
+        }
+        lines.push(t("wa_ask_time", lang));
         return lines.join("\n");
     }
 
     window.StreetMan = {
         I18N: I18N,
-        LAST_SLOT: LAST_SLOT,
-        TIME_SLOTS: TIME_SLOTS,
         MAPS_URL: MAPS_URL,
         detectLang: detectLang,
         t: t,
         waUrl: waUrl,
         applyLang: applyLang,
-        buildBookingText: buildBookingText
+        buildSimpleBookText: buildSimpleBookText
     };
 
     applyLang(detectLang());

@@ -1,0 +1,61 @@
+{
+  "@context": "https://schema.org",
+  "@type": "BarberShop",
+  "name": "StreetMan Barber",
+  "alternateName": "Street Man Barber Shop",
+  "description": "ร้านตัดผมย่านวิชิต อ.เมืองภูเก็ต ตัดผม ตกแต่งเครา โกนหนวด ย้อมผม เปิดทุกวัน 11:00-20:00",
+  "image": "img/carousel-1.jpg",
+  "telephone": "+66625258941",
+  "email": "streetmanBB@gmail.com",
+  "priceRange": "฿฿",
+  "currenciesAccepted": "THB",
+  "paymentAccepted": "Cash",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "19/82 Moo 2",
+    "addressLocality": "Wichit",
+    "addressRegion": "Phuket",
+    "postalCode": "83000",
+    "addressCountry": "TH"
+  },
+  "geo": {
+    "@type": "GeoCoordinates",
+    "latitude": 7.858419,
+    "longitude": 98.361948
+  },
+  "hasMap": "https://www.google.com/maps?q=7.858419,98.361948",
+  "areaServed": {
+    "@type": "City",
+    "name": "Phuket"
+  },
+  "openingHoursSpecification": {
+    "@type": "OpeningHoursSpecification",
+    "dayOfWeek": [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday"
+    ],
+    "opens": "11:00",
+    "closes": "20:00"
+  },
+  "makesOffer": [
+    { "@type": "Offer", "name": "Haircut", "price": "300", "priceCurrency": "THB" },
+    { "@type": "Offer", "name": "Beard trim", "price": "200", "priceCurrency": "THB" },
+    { "@type": "Offer", "name": "Shave", "price": "200", "priceCurrency": "THB" },
+    { "@type": "Offer", "name": "Hair dye add-on", "price": "150", "priceCurrency": "THB" },
+    { "@type": "Offer", "name": "Mustache", "price": "500", "priceCurrency": "THB" },
+    { "@type": "Offer", "name": "Stacking", "price": "1000", "priceCurrency": "THB" }
+  ],
+  "potentialAction": {
+    "@type": "ReserveAction",
+    "target": "book.html"
+  },
+  "sameAs": [
+    "https://www.facebook.com/streetmanbarbershop/",
+    "https://www.instagram.com/streetman_bs"
+  ]
+}

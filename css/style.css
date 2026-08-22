@@ -182,6 +182,21 @@ input[type="date"].form-control {
     min-width: 140px;
 }
 
+.book-cta {
+    font-size: 1.15rem;
+}
+
+.book-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 1.5rem;
+}
+
+.book-chips .btn {
+    text-transform: none;
+}
+
 @media (max-width: 991.98px) {
     .navbar .navbar-nav .nav-link,
     .navbar.shadow-sm .navbar-nav .nav-link {

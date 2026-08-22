@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="utf-8">
+    <title>เข้าสู่ระบบช่าง | StreetMan Barber</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../img/logo.PNG">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Oswald:wght@600&display=swap" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <link href="queue.css" rel="stylesheet">
+</head>
+<body class="staff-body">
+    <div class="staff-card">
+        <p class="staff-kicker">StreetMan Barber</p>
+        <h1>เข้าสู่ระบบช่าง</h1>
+        <p class="staff-copy">ดูคิวของตัวเองเท่านั้น ลูกค้าไม่เห็นหน้านี้</p>
+        <form id="login-form">
+            <label for="username">ชื่อผู้ใช้</label>
+            <input id="username" class="form-control" autocomplete="username" required>
+            <label for="password">รหัสผ่าน</label>
+            <input id="password" type="password" class="form-control" autocomplete="current-password" required>
+            <p id="login-error" class="staff-error d-none"></p>
+            <button class="btn btn-primary w-100 py-3 mt-3" type="submit">เข้าดูคิว</button>
+        </form>
+    </div>
+    <script src="login.js"></script>
+</body>
+</html>

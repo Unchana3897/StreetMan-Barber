@@ -1,0 +1,133 @@
+.staff-body {
+    min-height: 100vh;
+    background: #000;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.staff-card {
+    width: 100%;
+    max-width: 420px;
+    background: #191C24;
+    padding: 32px;
+}
+
+.staff-kicker,
+.queue-top .staff-kicker {
+    color: #EB1616;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.staff-copy {
+    color: #6C7293;
+}
+
+.staff-card label {
+    display: block;
+    margin: 16px 0 6px;
+}
+
+.staff-error {
+    color: #EB1616;
+    margin-top: 12px;
+}
+
+.queue-body {
+    display: block;
+    align-items: stretch;
+}
+
+.queue-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 24px;
+    background: #191C24;
+}
+
+.queue-top h1 {
+    margin: 0;
+    font-size: 28px;
+}
+
+.queue-top-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.queue-top-actions .form-control {
+    width: auto;
+    background: transparent;
+    color: #fff;
+    color-scheme: dark;
+}
+
+.queue-wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.queue-card {
+    background: #191C24;
+    padding: 18px 20px;
+    margin-bottom: 12px;
+    display: grid;
+    grid-template-columns: 90px 1fr auto;
+    gap: 16px;
+    align-items: center;
+}
+
+.queue-card.is-new {
+    outline: 1px solid #EB1616;
+}
+
+.queue-time {
+    color: #EB1616;
+    font-size: 22px;
+    font-family: Oswald, "Noto Sans Thai", sans-serif;
+}
+
+.queue-meta {
+    color: #6C7293;
+    margin: 0;
+}
+
+.queue-status {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
+.queue-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.queue-toast {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: #EB1616;
+    color: #fff;
+    padding: 12px 20px;
+    text-align: center;
+}
+
+@media (max-width: 700px) {
+    .queue-card {
+        grid-template-columns: 1fr;
+    }
+}

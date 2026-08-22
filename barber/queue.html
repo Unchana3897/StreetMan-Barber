@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="utf-8">
+    <title>คิวของฉัน | StreetMan Barber</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../img/logo.PNG">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Oswald:wght@600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <link href="queue.css" rel="stylesheet">
+</head>
+<body class="staff-body queue-body">
+    <header class="queue-top">
+        <div>
+            <p class="staff-kicker mb-1">StreetMan Barber</p>
+            <h1 id="barber-name">คิวของฉัน</h1>
+        </div>
+        <div class="queue-top-actions">
+            <input type="date" id="queue-date" class="form-control">
+            <button type="button" class="btn btn-outline-light" id="notify-btn">เปิดแจ้งเตือน</button>
+            <button type="button" class="btn btn-outline-light" id="logout-btn">ออกจากระบบ</button>
+        </div>
+    </header>
+    <div id="toast" class="queue-toast d-none"></div>
+    <main class="queue-wrap">
+        <p id="empty" class="staff-copy">ยังไม่มีคิววันนี้</p>
+        <div id="queue-list"></div>
+    </main>
+    <script src="queue.js"></script>
+</body>
+</html>

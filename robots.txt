@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+Disallow: /barber
+Disallow: /api/
