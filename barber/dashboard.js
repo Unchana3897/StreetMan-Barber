@@ -565,8 +565,15 @@
         load();
     }
 
+    var booted = false;
+
     async function boot() {
         await window.StreetManStore.me();
+        if (booted) {
+            await load();
+            return;
+        }
+        booted = true;
         tickClock();
         setInterval(tickClock, 15000);
         dateEl.value = todayISO();
@@ -613,7 +620,18 @@
         setInterval(load, 15000);
     }
 
-    boot().catch(function () {
-        window.location.href = "login.html";
+    boot().catch(function (err) {
+        if (err && err.status === 401) {
+            window.location.href = "login.html";
+            return;
+        }
+        showToast("ร้านกำลังเชื่อมต่อ รอสักครู่แล้วเปิดใหม่อีกครั้ง");
+        window.setTimeout(function () {
+            boot().catch(function (retryErr) {
+                if (retryErr && retryErr.status === 401) {
+                    window.location.href = "login.html";
+                }
+            });
+        }, 2500);
     });
 })();

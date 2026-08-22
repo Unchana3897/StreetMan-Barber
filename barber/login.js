@@ -24,6 +24,7 @@
         }
         var barber = { id: username, name: BARBERS[username], username: username, role: username === "rim" ? "owner" : "barber" };
         window.sessionStorage.setItem("sm_barber_session", JSON.stringify(barber));
+        window.localStorage.setItem("sm_barber_session", JSON.stringify(barber));
         return barber;
     }
 

@@ -227,35 +227,43 @@
 
     function getSession() {
         try {
-            return JSON.parse(window.sessionStorage.getItem(SESSION_KEY) || "null");
+            var raw = window.localStorage.getItem(SESSION_KEY) || window.sessionStorage.getItem(SESSION_KEY);
+            if (raw && !window.localStorage.getItem(SESSION_KEY)) {
+                window.localStorage.setItem(SESSION_KEY, raw);
+            }
+            return JSON.parse(raw || "null");
         } catch (err) {
             return null;
         }
     }
 
     function setSession(barber) {
-        window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(barber));
+        var text = JSON.stringify(barber);
+        window.localStorage.setItem(SESSION_KEY, text);
+        window.sessionStorage.removeItem(SESSION_KEY);
     }
 
     function clearSession() {
+        window.localStorage.removeItem(SESSION_KEY);
         window.sessionStorage.removeItem(SESSION_KEY);
     }
 
     async function usingNode() {
-        if (nodeMode !== null) {
-            return nodeMode;
-        }
         if (onGitHubPages()) {
             nodeMode = false;
             return false;
         }
+        if (nodeMode === true) {
+            return true;
+        }
         try {
             var res = await fetch("/api/slots?service=haircut&date=" + encodeURIComponent(bangkokNow().date));
-            nodeMode = res.ok;
-        } catch (err) {
-            nodeMode = false;
-        }
-        return nodeMode;
+            if (res.ok) {
+                nodeMode = true;
+                return true;
+            }
+        } catch (err) {}
+        return true;
     }
 
     async function nodeFetch(url, options) {

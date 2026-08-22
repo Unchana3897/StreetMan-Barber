@@ -15,7 +15,7 @@ seed();
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || "streetman-local-secret";
-const SESSION_MS = 12 * 60 * 60 * 1000;
+const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 const COOKIE = "sm_session";
 app.set("trust proxy", 1);
 
@@ -280,6 +280,16 @@ function tooMany(ip) {
     return false;
 }
 
+function cookieOptions(req) {
+    return {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: req.secure || req.headers["x-forwarded-proto"] === "https",
+        maxAge: SESSION_MS,
+        path: "/"
+    };
+}
+
 function readSession(req) {
     const token = req.cookies[COOKIE];
     if (!token) {
@@ -297,12 +307,23 @@ function readSession(req) {
     return row;
 }
 
+function touchSession(req, res, session) {
+    const remaining = Number(session.expires_at) - Date.now();
+    if (remaining > SESSION_MS / 2) {
+        return;
+    }
+    const expires = Date.now() + SESSION_MS;
+    db.prepare("UPDATE sessions SET expires_at = ? WHERE token = ?").run(expires, session.token);
+    res.cookie(COOKIE, session.token, cookieOptions(req));
+}
+
 function requireBarber(req, res, next) {
     const session = readSession(req);
     if (!session) {
         return res.status(401).json({ error: "login_required" });
     }
     req.barber = session;
+    touchSession(req, res, session);
     next();
 }
 
@@ -452,13 +473,7 @@ app.post("/api/login", (req, res) => {
         barber.id,
         Date.now() + SESSION_MS
     );
-    res.cookie(COOKIE, token, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: req.secure || req.headers["x-forwarded-proto"] === "https",
-        maxAge: SESSION_MS,
-        path: "/"
-    });
+    res.cookie(COOKIE, token, cookieOptions(req));
     res.json({ ok: true, barber: { id: barber.id, name: barber.name, username: barber.username, role: barber.role || "barber" } });
 });
 
