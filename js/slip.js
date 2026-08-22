@@ -90,7 +90,7 @@
 
         ctx.fillStyle = "#EB1616";
         ctx.font = "600 22px Oswald, 'Noto Sans Thai', sans-serif";
-        ctx.fillText("STREETMAN BARBER", 64, 72);
+        ctx.fillText("STREETMAN BARBER PHUKET", 64, 72);
         ctx.fillStyle = "#FFFFFF";
         ctx.font = "700 48px Oswald, 'Noto Sans Thai', sans-serif";
         ctx.fillText(t("slip_title"), 64, 128);
@@ -185,7 +185,7 @@
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 navigator.share({
                     files: [file],
-                    title: "StreetMan Barber",
+                    title: "StreetMan Barber Phuket",
                     text: t("slip_title") + " " + lastCode
                 }).catch(function () {
                     downloadBlob(blob);

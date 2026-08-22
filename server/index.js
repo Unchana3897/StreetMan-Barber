@@ -466,7 +466,7 @@ app.use((req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`StreetMan Barber running at http://localhost:${PORT}`);
+    console.log(`StreetMan Barber Phuket running at http://localhost:${PORT}`);
     console.log("Customer booking: /book.html");
     console.log("Barber login: /barber/login.html");
     console.log("Barber dashboard: /barber/dashboard.html");

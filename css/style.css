@@ -90,6 +90,11 @@ h1, h2, h3, h4, h5, h6 {
 
 
 /*** Navbar ***/
+.navbar-brand h1 {
+    font-size: clamp(1.05rem, 3.8vw, 2rem);
+    line-height: 1.15;
+}
+
 .navbar .dropdown-toggle::after {
     border: none;
     content: "\f107";

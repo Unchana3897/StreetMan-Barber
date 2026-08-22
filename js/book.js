@@ -139,8 +139,8 @@
             note: document.getElementById("note").value.trim()
         };
         var lines = lang === "th"
-            ? ["สวัสดีครับ ขอจองคิว StreetMan Barber"]
-            : ["Hi StreetMan Barber, I would like to book."];
+            ? ["สวัสดีครับ ขอจองคิว StreetMan Barber Phuket"]
+            : ["Hi StreetMan Barber Phuket, I would like to book."];
         lines.push((lang === "th" ? "ชื่อ: " : "Name: ") + booking.customer_name);
         lines.push((lang === "th" ? "เบอร์: " : "Phone: ") + booking.phone);
         if (booking.service) {

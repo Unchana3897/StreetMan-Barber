@@ -2,7 +2,7 @@
   "name": "streetman-barber",
   "version": "1.0.0",
   "private": true,
-  "description": "StreetMan Barber shop site, booking API, and barber queue",
+  "description": "StreetMan Barber Phuket shop site, booking API, and barber queue",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",

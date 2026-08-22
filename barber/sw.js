@@ -8,7 +8,7 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("push", (event) => {
     let data = {
-        title: "StreetMan Barber",
+        title: "StreetMan Barber Phuket",
         body: "มีคิวใหม่",
         url: "dashboard.html"
     };

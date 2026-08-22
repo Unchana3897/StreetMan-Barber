@@ -67,7 +67,7 @@ function notifyPush(barberId, booking) {
         return;
     }
     const payload = JSON.stringify({
-        title: "StreetMan Barber — คิวใหม่",
+        title: "StreetMan Barber Phuket — คิวใหม่",
         body: [
             booking.customer_name,
             booking.date,

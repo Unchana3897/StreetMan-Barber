@@ -414,7 +414,7 @@
         }
         beep();
         if (window.Notification && Notification.permission === "granted") {
-            new Notification("StreetMan Barber — คิวใหม่", {
+            new Notification("StreetMan Barber Phuket — คิวใหม่", {
                 body: booking.customer_name + " · " + booking.time + " · " + (SERVICES[booking.service] || booking.service)
             });
         }

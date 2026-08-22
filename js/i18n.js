@@ -25,14 +25,14 @@
             book_this: "จองคิวนี้",
             book_wa: "จองทาง WhatsApp",
             wa_float: "คุยทาง WhatsApp",
-            wa_quick: "สวัสดีครับ ขอจองคิว StreetMan Barber\nรบกวนช่วยนัดวันและเวลาที่สะดวกด้วยครับ",
+            wa_quick: "สวัสดีครับ ขอจองคิว StreetMan Barber Phuket\nรบกวนช่วยนัดวันและเวลาที่สะดวกด้วยครับ",
             hero1_title: "ตัดให้ดูดีทุกครั้ง",
             hero2_title: "ตัดสวย ราคาชัดเจน",
             hero_hours: "เปิดทุกวัน 11:00–20:00",
             about_badge: "เกี่ยวกับเรา",
             about_title: "มากกว่าแค่ตัดผม",
             about_title_page: "ร้านตัดผมภูเก็ต สำหรับลูกค้าประจำ",
-            about_p1: "StreetMan Barber เป็นร้านในย่านวิชิต อ.เมืองภูเก็ต ตัดเนี๊ยบ บรรยากาศสบาย ไม่รีบ ไม่ยัดเยียดบริการ — สำหรับคนท้องถิ่น ชาวต่างชาติ และนักท่องเที่ยว",
+            about_p1: "StreetMan Barber Phuket เป็นร้านในย่านวิชิต อ.เมืองภูเก็ต ตัดเนี๊ยบ บรรยากาศสบาย ไม่รีบ ไม่ยัดเยียดบริการ — สำหรับคนท้องถิ่น ชาวต่างชาติ และนักท่องเที่ยว",
             about_p2: "วอล์กอินได้ หรือจองออนไลน์ ช่างเห็นคิวทันที เปิดทุกวัน 11:00–20:00",
             about_p2_page: "ทีมนำโดยริม มีแบงค์ ริค และดี วอล์กอินได้ หรือจองออนไลน์ เปิดทุกวัน 11:00–20:00",
             about_stat: "เปิดร้าน",
@@ -147,7 +147,7 @@
             page_hours: "เวลาเปิด",
             page_reviews: "รีวิว",
             err_404_title: "ไม่พบหน้านี้",
-            err_404_p: "ไม่มีหน้านี้ในเว็บ StreetMan Barber กลับหน้าแรกหรือจองคิวจากที่นั่น",
+            err_404_p: "ไม่มีหน้านี้ในเว็บ StreetMan Barber Phuket กลับหน้าแรกหรือจองคิวจากที่นั่น",
             err_404_btn: "กลับหน้าแรก",
             title_home: "ร้านตัดผม StreetMan Barber ภูเก็ต | วิชิต",
             title_about: "เกี่ยวกับเรา | StreetMan Barber ภูเก็ต",
@@ -158,7 +158,7 @@
             title_contact: "ติดต่อ | StreetMan Barber ภูเก็ต",
             title_book: "จองคิวออนไลน์ | StreetMan Barber ภูเก็ต",
             title_reviews: "รีวิว | StreetMan Barber ภูเก็ต",
-            title_404: "ไม่พบหน้า | StreetMan Barber"
+            title_404: "ไม่พบหน้า | StreetMan Barber Phuket"
         },
         en: {
             nav_home: "Home",
@@ -179,14 +179,14 @@
             book_this: "Book this",
             book_wa: "Book on WhatsApp",
             wa_float: "Chat on WhatsApp",
-            wa_quick: "Hi StreetMan Barber, I would like to book a cut.\nPlease let me know a day and time that works.",
+            wa_quick: "Hi StreetMan Barber Phuket, I would like to book a cut.\nPlease let me know a day and time that works.",
             hero1_title: "We Will Keep You An Awesome Look",
             hero2_title: "Luxury Haircut at Affordable Price",
             hero_hours: "Open every day 11:00–20:00",
             about_badge: "About Us",
             about_title: "More Than Just A Haircut",
             about_title_page: "A Phuket Barbershop Built For Regulars",
-            about_p1: "StreetMan Barber is a neighborhood shop in Wichit, Mueang Phuket. We keep the cut clean and the vibe easy — no rush, no upsell, just a proper barbershop for locals, expats, and travelers.",
+            about_p1: "StreetMan Barber Phuket is a neighborhood shop in Wichit, Mueang Phuket. We keep the cut clean and the vibe easy — no rush, no upsell, just a proper barbershop for locals, expats, and travelers.",
             about_p2: "Walk in or book online — your barber sees the queue right away. Open every day from 11:00 AM to 8:00 PM.",
             about_p2_page: "The team is led by Rim, with Bank, Rick, and Dee on the chairs. Walk in or book online. We are open every day from 11:00 AM to 8:00 PM.",
             about_stat: "Open since",
@@ -301,7 +301,7 @@
             page_hours: "Working Hours",
             page_reviews: "Reviews",
             err_404_title: "Page Not Found",
-            err_404_p: "This page is not on the StreetMan Barber site. Head home or book a cut from there.",
+            err_404_p: "This page is not on the StreetMan Barber Phuket site. Head home or book a cut from there.",
             err_404_btn: "Go Back To Home",
             title_home: "StreetMan Barber Phuket | Wichit barbershop",
             title_about: "About | StreetMan Barber Phuket",
@@ -312,7 +312,7 @@
             title_contact: "Contact | StreetMan Barber Phuket",
             title_book: "Book online | StreetMan Barber Phuket",
             title_reviews: "Reviews | StreetMan Barber Phuket",
-            title_404: "Page not found | StreetMan Barber"
+            title_404: "Page not found | StreetMan Barber Phuket"
         }
     };
 
@@ -407,8 +407,8 @@
     function buildSimpleBookText(data, lang) {
         lang = lang || detectLang();
         var lines = lang === "th"
-            ? ["สวัสดีครับ ขอจองคิว StreetMan Barber"]
-            : ["Hi StreetMan Barber, I would like to book."];
+            ? ["สวัสดีครับ ขอจองคิว StreetMan Barber Phuket"]
+            : ["Hi StreetMan Barber Phuket, I would like to book."];
 
         if (data.service) {
             lines.push((lang === "th" ? "บริการ: " : "Service: ") + t("svc_" + data.service, lang));
