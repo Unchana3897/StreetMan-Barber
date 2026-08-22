@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 
 <head>
     <meta charset="utf-8">
@@ -12,7 +12,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&family=Oswald:wght@600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Roboto:wght@400;500&family=Oswald:wght@600&display=swap" rel="stylesheet">
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
@@ -24,7 +24,7 @@
     <link href="css/style.css" rel="stylesheet">
 </head>
 
-<body>
+<body data-page="hours">
     <div id="spinner" class="show bg-dark position-fixed translate-middle w-100 vh-100 top-50 start-50 d-flex align-items-center justify-content-center">
         <div class="spinner-grow text-primary" style="width: 3rem; height: 3rem;" role="status">
             <span class="sr-only">Loading...</span>
@@ -40,31 +40,31 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarCollapse">
             <div class="navbar-nav ms-auto p-4 p-lg-0">
-                <a href="index.html" class="nav-item nav-link">Home</a>
-                <a href="about.html" class="nav-item nav-link">About</a>
-                <a href="service.html" class="nav-item nav-link">Service</a>
-                <div class="nav-item dropdown">
-                    <a href="#" class="nav-link dropdown-toggle active" data-bs-toggle="dropdown">Pages</a>
-                    <div class="dropdown-menu m-0">
-                        <a href="price.html" class="dropdown-item">Pricing</a>
-                        <a href="team.html" class="dropdown-item">Our Barbers</a>
-                        <a href="open.html" class="dropdown-item active">Working Hours</a>
-                        <a href="testimonial.html" class="dropdown-item">Reviews</a>
-                    </div>
-                </div>
-                <a href="contact.html" class="nav-item nav-link">Contact</a>
+                <a href="index.html" class="nav-item nav-link" data-i18n="nav_home">หน้าแรก</a>
+                <a href="about.html" class="nav-item nav-link" data-i18n="nav_about">เกี่ยวกับเรา</a>
+                <a href="service.html" class="nav-item nav-link" data-i18n="nav_service">บริการ</a>
+                <a href="price.html" class="nav-item nav-link" data-i18n="nav_price">ราคา</a>
+                <a href="team.html" class="nav-item nav-link" data-i18n="nav_team">ช่าง</a>
+                <a href="open.html" class="nav-item nav-link active" data-i18n="nav_hours">เวลาเปิด</a>
+                <a href="contact.html" class="nav-item nav-link" data-i18n="nav_contact">ติดต่อ</a>
             </div>
-            <a href="https://wa.me/66625258941?text=Hi%20StreetMan%20Barber%2C%20I%20would%20like%20to%20book%20an%20appointment." class="btn btn-primary rounded-0 py-2 px-lg-4 mx-4 mx-lg-0 mb-3 mb-lg-0" target="_blank" rel="noopener">Appointment<i class="fa fa-arrow-right ms-3"></i></a>
+            <div class="d-flex flex-wrap align-items-center gap-2 mx-4 mx-lg-0 mb-3 mb-lg-0">
+                <div class="lang-switch" role="group" aria-label="Language">
+                    <button type="button" class="lang-btn" data-lang="th">TH</button>
+                    <button type="button" class="lang-btn" data-lang="en">EN</button>
+                </div>
+                <a href="contact.html" class="btn btn-primary rounded-0 py-2 px-lg-4"><span data-i18n="nav_book">จองคิว</span><i class="fa fa-arrow-right ms-3"></i></a>
+            </div>
         </div>
     </nav>
 
     <div class="container-fluid page-header py-5 mb-5 wow fadeIn" data-wow-delay="0.1s">
         <div class="container text-center py-5">
-            <h1 class="display-3 text-white text-uppercase mb-3 animated slideInDown">Working Hours</h1>
+            <h1 class="display-3 text-white text-uppercase mb-3 animated slideInDown" data-i18n="page_hours">เวลาเปิด</h1>
             <nav aria-label="breadcrumb animated slideInDown">
                 <ol class="breadcrumb justify-content-center text-uppercase mb-0">
-                    <li class="breadcrumb-item"><a class="text-white" href="index.html">Home</a></li>
-                    <li class="breadcrumb-item text-primary active" aria-current="page">Working Hours</li>
+                    <li class="breadcrumb-item"><a class="text-white" href="index.html" data-i18n="crumb_home">หน้าแรก</a></li>
+                    <li class="breadcrumb-item text-primary active" aria-current="page" data-i18n="page_hours">เวลาเปิด</li>
                 </ol>
             </nav>
         </div>
@@ -80,39 +80,40 @@
                 </div>
                 <div class="col-lg-6 wow fadeIn" data-wow-delay="0.5s">
                     <div class="bg-secondary h-100 d-flex flex-column justify-content-center p-5">
-                        <p class="d-inline-flex bg-dark text-primary py-1 px-4 me-auto">Working Hours</p>
-                        <h1 class="text-uppercase mb-4">Open Every Day</h1>
+                        <p class="d-inline-flex bg-dark text-primary py-1 px-4 me-auto" data-i18n="hours_badge">เวลาเปิด</p>
+                        <h1 class="text-uppercase mb-4" data-i18n="hours_title">เปิดทุกวัน</h1>
+                        <p class="mb-3" data-i18n="hours_last">คิวตัดผมสุดท้าย 19:00 · Stacking สุดท้าย 18:30</p>
                         <div>
                             <div class="d-flex justify-content-between border-bottom py-2">
-                                <h6 class="text-uppercase mb-0">Monday</h6>
-                                <span class="text-uppercase">11:00 AM – 8:00 PM</span>
+                                <h6 class="text-uppercase mb-0" data-i18n="day_mon">จันทร์</h6>
+                                <span class="text-uppercase">11:00 – 20:00</span>
                             </div>
                             <div class="d-flex justify-content-between border-bottom py-2">
-                                <h6 class="text-uppercase mb-0">Tuesday</h6>
-                                <span class="text-uppercase">11:00 AM – 8:00 PM</span>
+                                <h6 class="text-uppercase mb-0" data-i18n="day_tue">อังคาร</h6>
+                                <span class="text-uppercase">11:00 – 20:00</span>
                             </div>
                             <div class="d-flex justify-content-between border-bottom py-2">
-                                <h6 class="text-uppercase mb-0">Wednesday</h6>
-                                <span class="text-uppercase">11:00 AM – 8:00 PM</span>
+                                <h6 class="text-uppercase mb-0" data-i18n="day_wed">พุธ</h6>
+                                <span class="text-uppercase">11:00 – 20:00</span>
                             </div>
                             <div class="d-flex justify-content-between border-bottom py-2">
-                                <h6 class="text-uppercase mb-0">Thursday</h6>
-                                <span class="text-uppercase">11:00 AM – 8:00 PM</span>
+                                <h6 class="text-uppercase mb-0" data-i18n="day_thu">พฤหัสบดี</h6>
+                                <span class="text-uppercase">11:00 – 20:00</span>
                             </div>
                             <div class="d-flex justify-content-between border-bottom py-2">
-                                <h6 class="text-uppercase mb-0">Friday</h6>
-                                <span class="text-uppercase">11:00 AM – 8:00 PM</span>
+                                <h6 class="text-uppercase mb-0" data-i18n="day_fri">ศุกร์</h6>
+                                <span class="text-uppercase">11:00 – 20:00</span>
                             </div>
                             <div class="d-flex justify-content-between border-bottom py-2">
-                                <h6 class="text-uppercase mb-0">Saturday</h6>
-                                <span class="text-uppercase">11:00 AM – 8:00 PM</span>
+                                <h6 class="text-uppercase mb-0" data-i18n="day_sat">เสาร์</h6>
+                                <span class="text-uppercase">11:00 – 20:00</span>
                             </div>
                             <div class="d-flex justify-content-between py-2">
-                                <h6 class="text-uppercase mb-0">Sunday</h6>
-                                <span class="text-uppercase">11:00 AM – 8:00 PM</span>
+                                <h6 class="text-uppercase mb-0" data-i18n="day_sun">อาทิตย์</h6>
+                                <span class="text-uppercase">11:00 – 20:00</span>
                             </div>
                         </div>
-                        <a href="https://wa.me/66625258941?text=Hi%20StreetMan%20Barber%2C%20I%20would%20like%20to%20book%20an%20appointment." class="btn btn-primary mt-4 py-3" target="_blank" rel="noopener">Book a time</a>
+                        <a href="contact.html" class="btn btn-primary mt-4 py-3" data-i18n="nav_book">จองคิว</a>
                     </div>
                 </div>
             </div>
@@ -123,7 +124,7 @@
         <div class="container py-5">
             <div class="row g-5">
                 <div class="col-lg-4 col-md-6">
-                    <h4 class="text-uppercase mb-4">Get In Touch</h4>
+                    <h4 class="text-uppercase mb-4" data-i18n="footer_touch">ติดต่อร้าน</h4>
                     <div class="d-flex align-items-center mb-2">
                         <div class="btn-square bg-dark flex-shrink-0 me-3">
                             <span class="fa fa-map-marker-alt text-primary"></span>
@@ -144,20 +145,20 @@
                     </div>
                 </div>
                 <div class="col-lg-4 col-md-6">
-                    <h4 class="text-uppercase mb-4">Quick Links</h4>
-                    <a class="btn btn-link" href="about.html">About Us</a>
-                    <a class="btn btn-link" href="service.html">Our Services</a>
-                    <a class="btn btn-link" href="price.html">Pricing</a>
-                    <a class="btn btn-link" href="team.html">Our Barbers</a>
-                    <a class="btn btn-link" href="contact.html">Contact Us</a>
+                    <h4 class="text-uppercase mb-4" data-i18n="footer_links">ลิงก์ด่วน</h4>
+                    <a class="btn btn-link" href="service.html" data-i18n="nav_service">บริการ</a>
+                    <a class="btn btn-link" href="price.html" data-i18n="nav_price">ราคา</a>
+                    <a class="btn btn-link" href="team.html" data-i18n="nav_team">ช่าง</a>
+                    <a class="btn btn-link" href="open.html" data-i18n="nav_hours">เวลาเปิด</a>
+                    <a class="btn btn-link" href="contact.html" data-i18n="nav_contact">ติดต่อ</a>
                 </div>
                 <div class="col-lg-4 col-md-6">
-                    <h4 class="text-uppercase mb-4">Book A Cut</h4>
-                    <p>Walk-ins welcome. Phone or WhatsApp is faster during peak hours.</p>
-                    <p class="mb-3">Open every day, 11:00 AM – 8:00 PM</p>
+                    <h4 class="text-uppercase mb-4" data-i18n="footer_book">จองคิว</h4>
+                    <p data-i18n="footer_walkin">วอล์กอินได้ ช่วงร้านหนาแน่น โทรหรือ WhatsApp จะเร็วกว่า</p>
+                    <p class="mb-3" data-i18n="hours_last">คิวตัดผมสุดท้าย 19:00 · Stacking สุดท้าย 18:30</p>
                     <div class="d-flex pt-1 m-n1">
                         <a class="btn btn-lg-square btn-dark text-primary m-1" href="https://www.facebook.com/streetmanbarbershop/" target="_blank" rel="noopener"><i class="fab fa-facebook-f"></i></a>
-                        <a class="btn btn-lg-square btn-dark text-primary m-1" href="https://wa.me/66625258941" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i></a>
+                        <a class="btn btn-lg-square btn-dark text-primary m-1 js-wa-quick" href="https://wa.me/66625258941" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i></a>
                         <a class="btn btn-lg-square btn-dark text-primary m-1" href="tel:0625258941"><i class="fa fa-phone-alt"></i></a>
                     </div>
                 </div>
@@ -167,7 +168,7 @@
             <div class="copyright">
                 <div class="row">
                     <div class="col-md-6 text-center text-md-start mb-3 mb-md-0">
-                        &copy; <a class="border-bottom" href="index.html">StreetMan Barber</a>, All Right Reserved.
+                        &copy; <a class="border-bottom" href="index.html">StreetMan Barber</a>, <span data-i18n="footer_copy">สงวนลิขสิทธิ์</span>.
                     </div>
                     <div class="col-md-6 text-center text-md-end">
                         Designed By <a class="border-bottom" href="">UNNY1998</a>
@@ -178,7 +179,7 @@
         </div>
     </div>
 
-    <a href="https://wa.me/66625258941?text=Hi%20StreetMan%20Barber%2C%20I%20would%20like%20to%20book%20an%20appointment." class="btn btn-lg-square whatsapp-float" target="_blank" rel="noopener" aria-label="Chat on WhatsApp"><i class="fab fa-whatsapp"></i></a>
+    <a href="https://wa.me/66625258941" class="btn btn-lg-square whatsapp-float js-wa-quick" target="_blank" rel="noopener" aria-label="คุยทาง WhatsApp" data-i18n-aria="wa_float"><i class="fab fa-whatsapp"></i></a>
     <a href="#" class="btn btn-primary btn-lg-square back-to-top"><i class="bi bi-arrow-up"></i></a>
 
     <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
@@ -187,6 +188,7 @@
     <script src="lib/easing/easing.min.js"></script>
     <script src="lib/waypoints/waypoints.min.js"></script>
     <script src="lib/owlcarousel/owl.carousel.min.js"></script>
+    <script src="js/i18n.js"></script>
     <script src="js/main.js"></script>
 </body>
 

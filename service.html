@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 
 <head>
     <meta charset="utf-8">
@@ -12,7 +12,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&family=Oswald:wght@600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Roboto:wght@400;500&family=Oswald:wght@600&display=swap" rel="stylesheet">
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
@@ -24,7 +24,7 @@
     <link href="css/style.css" rel="stylesheet">
 </head>
 
-<body>
+<body data-page="service">
     <div id="spinner" class="show bg-dark position-fixed translate-middle w-100 vh-100 top-50 start-50 d-flex align-items-center justify-content-center">
         <div class="spinner-grow text-primary" style="width: 3rem; height: 3rem;" role="status">
             <span class="sr-only">Loading...</span>
@@ -40,31 +40,31 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarCollapse">
             <div class="navbar-nav ms-auto p-4 p-lg-0">
-                <a href="index.html" class="nav-item nav-link">Home</a>
-                <a href="about.html" class="nav-item nav-link">About</a>
-                <a href="service.html" class="nav-item nav-link active">Service</a>
-                <div class="nav-item dropdown">
-                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Pages</a>
-                    <div class="dropdown-menu m-0">
-                        <a href="price.html" class="dropdown-item">Pricing</a>
-                        <a href="team.html" class="dropdown-item">Our Barbers</a>
-                        <a href="open.html" class="dropdown-item">Working Hours</a>
-                        <a href="testimonial.html" class="dropdown-item">Reviews</a>
-                    </div>
-                </div>
-                <a href="contact.html" class="nav-item nav-link">Contact</a>
+                <a href="index.html" class="nav-item nav-link" data-i18n="nav_home">หน้าแรก</a>
+                <a href="about.html" class="nav-item nav-link" data-i18n="nav_about">เกี่ยวกับเรา</a>
+                <a href="service.html" class="nav-item nav-link active" data-i18n="nav_service">บริการ</a>
+                <a href="price.html" class="nav-item nav-link" data-i18n="nav_price">ราคา</a>
+                <a href="team.html" class="nav-item nav-link" data-i18n="nav_team">ช่าง</a>
+                <a href="open.html" class="nav-item nav-link" data-i18n="nav_hours">เวลาเปิด</a>
+                <a href="contact.html" class="nav-item nav-link" data-i18n="nav_contact">ติดต่อ</a>
             </div>
-            <a href="https://wa.me/66625258941?text=Hi%20StreetMan%20Barber%2C%20I%20would%20like%20to%20book%20an%20appointment." class="btn btn-primary rounded-0 py-2 px-lg-4 mx-4 mx-lg-0 mb-3 mb-lg-0" target="_blank" rel="noopener">Appointment<i class="fa fa-arrow-right ms-3"></i></a>
+            <div class="d-flex flex-wrap align-items-center gap-2 mx-4 mx-lg-0 mb-3 mb-lg-0">
+                <div class="lang-switch" role="group" aria-label="Language">
+                    <button type="button" class="lang-btn" data-lang="th">TH</button>
+                    <button type="button" class="lang-btn" data-lang="en">EN</button>
+                </div>
+                <a href="contact.html" class="btn btn-primary rounded-0 py-2 px-lg-4"><span data-i18n="nav_book">จองคิว</span><i class="fa fa-arrow-right ms-3"></i></a>
+            </div>
         </div>
     </nav>
 
     <div class="container-fluid page-header py-5 mb-5 wow fadeIn" data-wow-delay="0.1s">
         <div class="container text-center py-5">
-            <h1 class="display-3 text-white text-uppercase mb-3 animated slideInDown">Services</h1>
+            <h1 class="display-3 text-white text-uppercase mb-3 animated slideInDown" data-i18n="page_service">บริการ</h1>
             <nav aria-label="breadcrumb animated slideInDown">
                 <ol class="breadcrumb justify-content-center text-uppercase mb-0">
-                    <li class="breadcrumb-item"><a class="text-white" href="index.html">Home</a></li>
-                    <li class="breadcrumb-item text-primary active" aria-current="page">Service</li>
+                    <li class="breadcrumb-item"><a class="text-white" href="index.html" data-i18n="crumb_home">หน้าแรก</a></li>
+                    <li class="breadcrumb-item text-primary active" aria-current="page" data-i18n="page_service">บริการ</li>
                 </ol>
             </nav>
         </div>
@@ -73,8 +73,8 @@
     <div class="container-xxl py-5">
         <div class="container">
             <div class="text-center mx-auto mb-5 wow fadeInUp" data-wow-delay="0.1s" style="max-width: 600px;">
-                <p class="d-inline-block bg-secondary text-primary py-1 px-4">Services</p>
-                <h1 class="text-uppercase">What We Provide</h1>
+                <p class="d-inline-block bg-secondary text-primary py-1 px-4" data-i18n="svc_badge">บริการ</p>
+                <h1 class="text-uppercase" data-i18n="svc_title">บริการของร้าน</h1>
             </div>
             <div class="row g-4">
                 <div class="col-lg-4 col-md-6 wow fadeInUp" data-wow-delay="0.1s">
@@ -83,11 +83,13 @@
                             <img class="img-fluid" src="img/haircut.png" alt="">
                         </div>
                         <div class="ps-4">
-                            <h3 class="text-uppercase mb-3">Haircut</h3>
-                            <p>Classic and modern cuts with wash and finish. Tell us the style — we will match it.</p>
+                            <h3 class="text-uppercase mb-3" data-i18n="svc_haircut">ตัดผม</h3>
+                            <p data-i18n="svc_haircut_p">ทรงคลาสสิกและโมเดิร์น รวมสระและจัดทรง บอกสไตล์มาได้เลย</p>
                             <span class="text-uppercase text-primary">300 B</span>
+                            <span class="service-meta" data-i18n="meta_haircut">รวมสระ · ประมาณ 45 นาที · คิวสุดท้าย 19:00</span>
+                            <a href="contact.html?service=haircut" class="btn btn-primary mt-3 py-2 px-3" data-i18n="book_this">จองคิวนี้</a>
                         </div>
-                        <a class="btn btn-square" href="https://wa.me/66625258941?text=Hi%20StreetMan%20Barber%2C%20I%20would%20like%20to%20book%20a%20haircut." target="_blank" rel="noopener"><i class="fa fa-plus text-primary"></i></a>
+                        <a class="btn btn-square" href="contact.html?service=haircut"><i class="fa fa-plus text-primary"></i></a>
                     </div>
                 </div>
                 <div class="col-lg-4 col-md-6 wow fadeInUp" data-wow-delay="0.3s">
@@ -96,11 +98,13 @@
                             <img class="img-fluid" src="img/beard-trim.png" alt="">
                         </div>
                         <div class="ps-4">
-                            <h3 class="text-uppercase mb-3">Beard Trim</h3>
-                            <p>Clean lines and a shape that fits your face and haircut.</p>
+                            <h3 class="text-uppercase mb-3" data-i18n="svc_beard">ตกแต่งเครา</h3>
+                            <p data-i18n="svc_beard_p">เก็บขอบให้เข้ากับรูปหน้าและทรงผม</p>
                             <span class="text-uppercase text-primary">200 B</span>
+                            <span class="service-meta" data-i18n="meta_beard">ประมาณ 20 นาที</span>
+                            <a href="contact.html?service=beard" class="btn btn-primary mt-3 py-2 px-3" data-i18n="book_this">จองคิวนี้</a>
                         </div>
-                        <a class="btn btn-square" href="https://wa.me/66625258941?text=Hi%20StreetMan%20Barber%2C%20I%20would%20like%20to%20book%20a%20beard%20trim." target="_blank" rel="noopener"><i class="fa fa-plus text-primary"></i></a>
+                        <a class="btn btn-square" href="contact.html?service=beard"><i class="fa fa-plus text-primary"></i></a>
                     </div>
                 </div>
                 <div class="col-lg-4 col-md-6 wow fadeInUp" data-wow-delay="0.5s">
@@ -109,11 +113,13 @@
                             <img class="img-fluid" src="img/mans-shave.png" alt="">
                         </div>
                         <div class="ps-4">
-                            <h3 class="text-uppercase mb-3">Men's Shave</h3>
-                            <p>A close, comfortable shave when you want a clean finish.</p>
+                            <h3 class="text-uppercase mb-3" data-i18n="svc_shave">โกนหนวด</h3>
+                            <p data-i18n="svc_shave_p">โกนเนียน สบาย เมื่ออยากได้ลุคสะอาด</p>
                             <span class="text-uppercase text-primary">200 B</span>
+                            <span class="service-meta" data-i18n="meta_shave">ประมาณ 20 นาที</span>
+                            <a href="contact.html?service=shave" class="btn btn-primary mt-3 py-2 px-3" data-i18n="book_this">จองคิวนี้</a>
                         </div>
-                        <a class="btn btn-square" href="https://wa.me/66625258941?text=Hi%20StreetMan%20Barber%2C%20I%20would%20like%20to%20book%20a%20shave." target="_blank" rel="noopener"><i class="fa fa-plus text-primary"></i></a>
+                        <a class="btn btn-square" href="contact.html?service=shave"><i class="fa fa-plus text-primary"></i></a>
                     </div>
                 </div>
                 <div class="col-lg-4 col-md-6 wow fadeInUp" data-wow-delay="0.1s">
@@ -122,11 +128,13 @@
                             <img class="img-fluid" src="img/hair-dyeing.png" alt="">
                         </div>
                         <div class="ps-4">
-                            <h3 class="text-uppercase mb-3">Hair Dyeing</h3>
-                            <p>Cover gray or refresh your color with a natural result.</p>
+                            <h3 class="text-uppercase mb-3" data-i18n="svc_dye">ย้อมผม</h3>
+                            <p data-i18n="svc_dye_p">ปิดผมขาว หรือรีเฟรชสี ให้ดูเป็นธรรมชาติ</p>
                             <span class="text-uppercase text-primary">150 B</span>
+                            <span class="service-meta" data-i18n="meta_dye">ส่วนเสริมคู่กับตัดผม · ประมาณ 20 นาที</span>
+                            <a href="contact.html?service=dye" class="btn btn-primary mt-3 py-2 px-3" data-i18n="book_this">จองคิวนี้</a>
                         </div>
-                        <a class="btn btn-square" href="https://wa.me/66625258941?text=Hi%20StreetMan%20Barber%2C%20I%20would%20like%20to%20book%20hair%20dyeing." target="_blank" rel="noopener"><i class="fa fa-plus text-primary"></i></a>
+                        <a class="btn btn-square" href="contact.html?service=dye"><i class="fa fa-plus text-primary"></i></a>
                     </div>
                 </div>
                 <div class="col-lg-4 col-md-6 wow fadeInUp" data-wow-delay="0.3s">
@@ -135,11 +143,13 @@
                             <img class="img-fluid" src="img/mustache.png" alt="">
                         </div>
                         <div class="ps-4">
-                            <h3 class="text-uppercase mb-3">Mustache</h3>
-                            <p>Precision trim and style so the details stay sharp.</p>
+                            <h3 class="text-uppercase mb-3" data-i18n="svc_mustache">ตกแต่งหนวด</h3>
+                            <p data-i18n="svc_mustache_p">เก็บรายละเอียดให้คม เรียบร้อย</p>
                             <span class="text-uppercase text-primary">500 B</span>
+                            <span class="service-meta" data-i18n="meta_mustache">ประมาณ 30 นาที</span>
+                            <a href="contact.html?service=mustache" class="btn btn-primary mt-3 py-2 px-3" data-i18n="book_this">จองคิวนี้</a>
                         </div>
-                        <a class="btn btn-square" href="https://wa.me/66625258941?text=Hi%20StreetMan%20Barber%2C%20I%20would%20like%20to%20book%20a%20mustache%20trim." target="_blank" rel="noopener"><i class="fa fa-plus text-primary"></i></a>
+                        <a class="btn btn-square" href="contact.html?service=mustache"><i class="fa fa-plus text-primary"></i></a>
                     </div>
                 </div>
                 <div class="col-lg-4 col-md-6 wow fadeInUp" data-wow-delay="0.5s">
@@ -148,11 +158,13 @@
                             <img class="img-fluid" src="img/stacking.png" alt="">
                         </div>
                         <div class="ps-4">
-                            <h3 class="text-uppercase mb-3">Stacking</h3>
-                            <p>Full stacking and style work when you want a complete look.</p>
+                            <h3 class="text-uppercase mb-3" data-i18n="svc_stacking">เซ็ตทรง / Stacking</h3>
+                            <p data-i18n="svc_stacking_p">จัดทรงเต็มรูปแบบ เมื่ออยากได้ลุคใหม่ทั้งหัว</p>
                             <span class="text-uppercase text-primary">1000 B</span>
+                            <span class="service-meta" data-i18n="meta_stacking">จัดทรงเต็ม · ประมาณ 90 นาที · คิวสุดท้าย 18:30</span>
+                            <a href="contact.html?service=stacking" class="btn btn-primary mt-3 py-2 px-3" data-i18n="book_this">จองคิวนี้</a>
                         </div>
-                        <a class="btn btn-square" href="https://wa.me/66625258941?text=Hi%20StreetMan%20Barber%2C%20I%20would%20like%20to%20book%20stacking." target="_blank" rel="noopener"><i class="fa fa-plus text-primary"></i></a>
+                        <a class="btn btn-square" href="contact.html?service=stacking"><i class="fa fa-plus text-primary"></i></a>
                     </div>
                 </div>
             </div>
@@ -162,24 +174,24 @@
     <div class="container-xxl py-5">
         <div class="container">
             <div class="text-center mx-auto mb-5 wow fadeInUp" data-wow-delay="0.1s" style="max-width: 600px;">
-                <p class="d-inline-block bg-secondary text-primary py-1 px-4">Reviews</p>
-                <h1 class="text-uppercase">What Our Clients Say</h1>
+                <p class="d-inline-block bg-secondary text-primary py-1 px-4" data-i18n="reviews_badge">รีวิว</p>
+                <h1 class="text-uppercase" data-i18n="reviews_title">ลูกค้าพูดถึงเรา</h1>
             </div>
             <div class="owl-carousel testimonial-carousel wow fadeInUp" data-wow-delay="0.1s">
                 <div class="testimonial-item text-center" data-dot="<img class='img-fluid' src='img/Cus1.jpg' alt=''>">
                     <h4 class="text-uppercase">Mark</h4>
-                    <p class="text-primary">Guest from the UK</p>
-                    <span class="fs-5">Best fade I have had in Phuket. The shop is relaxed, Rim took his time, and the price is fair.</span>
+                    <p class="text-primary" data-i18n="rev_mark_role">แขกจากอังกฤษ</p>
+                    <span class="fs-5" data-i18n="rev_mark">เฟดที่ดีที่สุดที่ได้ในภูเก็ต ร้านสบาย ริมทำอย่างตั้งใจ ราคาแฟร์</span>
                 </div>
                 <div class="testimonial-item text-center" data-dot="<img class='img-fluid' src='img/cus2.jpg' alt=''>">
                     <h4 class="text-uppercase">Natt</h4>
-                    <p class="text-primary">Regular</p>
-                    <span class="fs-5">I come every month. They remember how I like it and never rush the cut.</span>
+                    <p class="text-primary" data-i18n="rev_natt_role">ลูกค้าประจำ</p>
+                    <span class="fs-5" data-i18n="rev_natt">มาทุกเดือน จำทรงที่ชอบได้ และไม่รีบตัด</span>
                 </div>
                 <div class="testimonial-item text-center" data-dot="<img class='img-fluid' src='img/cus3.jpg' alt=''>">
                     <h4 class="text-uppercase">James</h4>
-                    <p class="text-primary">Expat in Wichit</p>
-                    <span class="fs-5">Walked in, booked the next slot on WhatsApp, and left looking sharp. Easy shop to come back to.</span>
+                    <p class="text-primary" data-i18n="rev_james_role">ชาวต่างชาติที่ย่านวิชิต</p>
+                    <span class="fs-5" data-i18n="rev_james">เดินเข้ามา จองคิวถัดไปทาง WhatsApp แล้วออกไปอย่างมั่นใจ</span>
                 </div>
             </div>
         </div>
@@ -189,7 +201,7 @@
         <div class="container py-5">
             <div class="row g-5">
                 <div class="col-lg-4 col-md-6">
-                    <h4 class="text-uppercase mb-4">Get In Touch</h4>
+                    <h4 class="text-uppercase mb-4" data-i18n="footer_touch">ติดต่อร้าน</h4>
                     <div class="d-flex align-items-center mb-2">
                         <div class="btn-square bg-dark flex-shrink-0 me-3">
                             <span class="fa fa-map-marker-alt text-primary"></span>
@@ -210,20 +222,20 @@
                     </div>
                 </div>
                 <div class="col-lg-4 col-md-6">
-                    <h4 class="text-uppercase mb-4">Quick Links</h4>
-                    <a class="btn btn-link" href="about.html">About Us</a>
-                    <a class="btn btn-link" href="service.html">Our Services</a>
-                    <a class="btn btn-link" href="price.html">Pricing</a>
-                    <a class="btn btn-link" href="team.html">Our Barbers</a>
-                    <a class="btn btn-link" href="contact.html">Contact Us</a>
+                    <h4 class="text-uppercase mb-4" data-i18n="footer_links">ลิงก์ด่วน</h4>
+                    <a class="btn btn-link" href="service.html" data-i18n="nav_service">บริการ</a>
+                    <a class="btn btn-link" href="price.html" data-i18n="nav_price">ราคา</a>
+                    <a class="btn btn-link" href="team.html" data-i18n="nav_team">ช่าง</a>
+                    <a class="btn btn-link" href="open.html" data-i18n="nav_hours">เวลาเปิด</a>
+                    <a class="btn btn-link" href="contact.html" data-i18n="nav_contact">ติดต่อ</a>
                 </div>
                 <div class="col-lg-4 col-md-6">
-                    <h4 class="text-uppercase mb-4">Book A Cut</h4>
-                    <p>Walk-ins welcome. Phone or WhatsApp is faster during peak hours.</p>
-                    <p class="mb-3">Open every day, 11:00 AM – 8:00 PM</p>
+                    <h4 class="text-uppercase mb-4" data-i18n="footer_book">จองคิว</h4>
+                    <p data-i18n="footer_walkin">วอล์กอินได้ ช่วงร้านหนาแน่น โทรหรือ WhatsApp จะเร็วกว่า</p>
+                    <p class="mb-3" data-i18n="hours_last">คิวตัดผมสุดท้าย 19:00 · Stacking สุดท้าย 18:30</p>
                     <div class="d-flex pt-1 m-n1">
                         <a class="btn btn-lg-square btn-dark text-primary m-1" href="https://www.facebook.com/streetmanbarbershop/" target="_blank" rel="noopener"><i class="fab fa-facebook-f"></i></a>
-                        <a class="btn btn-lg-square btn-dark text-primary m-1" href="https://wa.me/66625258941" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i></a>
+                        <a class="btn btn-lg-square btn-dark text-primary m-1 js-wa-quick" href="https://wa.me/66625258941" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i></a>
                         <a class="btn btn-lg-square btn-dark text-primary m-1" href="tel:0625258941"><i class="fa fa-phone-alt"></i></a>
                     </div>
                 </div>
@@ -233,7 +245,7 @@
             <div class="copyright">
                 <div class="row">
                     <div class="col-md-6 text-center text-md-start mb-3 mb-md-0">
-                        &copy; <a class="border-bottom" href="index.html">StreetMan Barber</a>, All Right Reserved.
+                        &copy; <a class="border-bottom" href="index.html">StreetMan Barber</a>, <span data-i18n="footer_copy">สงวนลิขสิทธิ์</span>.
                     </div>
                     <div class="col-md-6 text-center text-md-end">
                         Designed By <a class="border-bottom" href="">UNNY1998</a>
@@ -244,7 +256,7 @@
         </div>
     </div>
 
-    <a href="https://wa.me/66625258941?text=Hi%20StreetMan%20Barber%2C%20I%20would%20like%20to%20book%20an%20appointment." class="btn btn-lg-square whatsapp-float" target="_blank" rel="noopener" aria-label="Chat on WhatsApp"><i class="fab fa-whatsapp"></i></a>
+    <a href="https://wa.me/66625258941" class="btn btn-lg-square whatsapp-float js-wa-quick" target="_blank" rel="noopener" aria-label="คุยทาง WhatsApp" data-i18n-aria="wa_float"><i class="fab fa-whatsapp"></i></a>
     <a href="#" class="btn btn-primary btn-lg-square back-to-top"><i class="bi bi-arrow-up"></i></a>
 
     <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
@@ -253,6 +265,7 @@
     <script src="lib/easing/easing.min.js"></script>
     <script src="lib/waypoints/waypoints.min.js"></script>
     <script src="lib/owlcarousel/owl.carousel.min.js"></script>
+    <script src="js/i18n.js"></script>
     <script src="js/main.js"></script>
 </body>
 

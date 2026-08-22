@@ -6,6 +6,14 @@
     --dark: #000000;
 }
 
+body {
+    font-family: 'Roboto', 'Noto Sans Thai', sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Oswald', 'Noto Sans Thai', sans-serif;
+}
+
 .back-to-top {
     position: fixed;
     display: none;
@@ -92,11 +100,11 @@
 }
 
 .navbar .navbar-nav .nav-link {
-    margin-right: 30px;
-    padding: 40px 0;
+    margin-right: 14px;
+    padding: 32px 0;
     color: var(--light);
-    font-family: 'Oswald', sans-serif;
-    font-size: 18px;
+    font-family: 'Oswald', 'Noto Sans Thai', sans-serif;
+    font-size: 15px;
     font-weight: 600;
     text-transform: uppercase;
     outline: none;
@@ -108,8 +116,70 @@
 }
 
 .navbar.sticky-top {
-    top: -100px;
+    top: 0;
     transition: .5s;
+}
+
+.lang-switch {
+    display: inline-flex;
+    border: 1px solid var(--light);
+}
+
+.lang-btn {
+    background: transparent;
+    color: var(--light);
+    border: 0;
+    min-width: 42px;
+    padding: 6px 10px;
+    font-family: 'Oswald', 'Noto Sans Thai', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.lang-btn.active,
+.lang-btn:hover {
+    background: var(--primary);
+    color: #fff;
+}
+
+.price-meta,
+.service-meta {
+    display: block;
+    margin-top: 4px;
+    color: var(--light);
+    font-size: 13px;
+    text-transform: none;
+    font-weight: 400;
+}
+
+.team-item .btn-book-barber {
+    font-size: 14px;
+    text-transform: none;
+}
+
+.form-select.bg-transparent,
+.form-control.bg-transparent {
+    color: #fff;
+}
+
+.form-select.bg-transparent option {
+    color: #111;
+}
+
+input[type="date"].form-control {
+    color-scheme: dark;
+}
+
+@media (min-width: 992px) and (max-width: 1199.98px) {
+    .navbar .navbar-nav .nav-link {
+        margin-right: 10px;
+        font-size: 13px;
+    }
+}
+
+.hero-actions .btn {
+    min-width: 140px;
 }
 
 @media (max-width: 991.98px) {
@@ -210,6 +280,14 @@
     right: 0;
     bottom: 0;
     opacity: 1;
+}
+
+@media (max-width: 991.98px) {
+    .service-item .btn {
+        right: 0;
+        bottom: 0;
+        opacity: 1;
+    }
 }
 
 
