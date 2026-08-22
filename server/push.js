@@ -61,19 +61,14 @@ function removeSubscription(endpoint) {
     db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").run(String(endpoint || ""));
 }
 
-function notifyPush(barberId, booking) {
+function send(barberId, title, body) {
     const rows = db.prepare("SELECT * FROM push_subscriptions WHERE barber_id = ?").all(barberId);
     if (!rows.length) {
         return;
     }
     const payload = JSON.stringify({
-        title: "StreetMan Barber Phuket — คิวใหม่",
-        body: [
-            booking.customer_name,
-            booking.date,
-            booking.time,
-            SERVICES[booking.service] || booking.service
-        ].join(" · "),
+        title: title,
+        body: body,
         url: "/barber/dashboard.html"
     });
     rows.forEach((row) => {
@@ -88,9 +83,19 @@ function notifyPush(barberId, booking) {
     });
 }
 
+function notifyPush(barberId, booking) {
+    send(barberId, "StreetMan Barber Phuket — คิวใหม่", [
+        booking.customer_name,
+        booking.date,
+        booking.time,
+        SERVICES[booking.service] || booking.service
+    ].join(" · "));
+}
+
 module.exports = {
     publicKey: vapid.publicKey,
     saveSubscription,
     removeSubscription,
-    notifyPush
+    notifyPush,
+    send
 };

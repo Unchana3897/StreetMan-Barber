@@ -72,5 +72,8 @@ db.prepare("UPDATE barbers SET role = 'owner' WHERE id = 'rim'").run();
 if (!hasColumn("bookings", "extras")) {
     db.exec("ALTER TABLE bookings ADD COLUMN extras TEXT NOT NULL DEFAULT '[]'");
 }
+if (!hasColumn("bookings", "reminded_at")) {
+    db.exec("ALTER TABLE bookings ADD COLUMN reminded_at TEXT");
+}
 
 module.exports = db;

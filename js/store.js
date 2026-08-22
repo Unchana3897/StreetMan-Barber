@@ -690,7 +690,7 @@
             writeStaff(rows);
             return { ok: true, barber: found };
         },
-        listen: function (onBooking) {
+        listen: function (onBooking, onReminder) {
             usingNode().then(function (ok) {
                 if (ok) {
                     if (!window.EventSource) {
@@ -702,6 +702,9 @@
                             var payload = JSON.parse(event.data);
                             if (payload.type === "new_booking") {
                                 onBooking(payload.booking);
+                            }
+                            if (payload.type === "day_reminder" && onReminder) {
+                                onReminder(payload);
                             }
                         } catch (err) {}
                     };

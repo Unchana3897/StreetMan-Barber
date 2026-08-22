@@ -547,6 +547,20 @@
         render(data);
     }
 
+    function onDayReminder(payload) {
+        showToast(payload.message || "มีคิววันนี้");
+        beep();
+        if (window.Notification && Notification.permission === "granted") {
+            new Notification(payload.title || "คิววันนี้", {
+                body: payload.message || "เปิด Dashboard เพื่อดูคิววันนี้"
+            });
+        }
+        if (payload.date && dateEl.value !== payload.date) {
+            dateEl.value = payload.date;
+        }
+        load();
+    }
+
     function onNewBooking(booking) {
         if (!booking || knownIds.has(booking.id)) {
             return;
@@ -615,7 +629,7 @@
             enablePush();
         });
 
-        window.StreetManStore.listen(onNewBooking);
+        window.StreetManStore.listen(onNewBooking, onDayReminder);
 
         setInterval(load, 15000);
     }

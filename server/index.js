@@ -349,6 +349,46 @@ function notify(barberId, payload) {
     });
 }
 
+function sendDayReminders() {
+    const now = bangkokNow();
+    if (now.time < "09:00") {
+        return;
+    }
+    const rows = db.prepare(`
+        SELECT id, customer_name, service, barber_id, date, time, status
+        FROM bookings
+        WHERE date = ? AND status IN ('pending', 'confirmed')
+            AND (reminded_at IS NULL OR reminded_at = '')
+        ORDER BY time ASC, id ASC
+    `).all(now.date);
+    if (!rows.length) {
+        return;
+    }
+    const grouped = new Map();
+    rows.forEach((row) => {
+        if (!grouped.has(row.barber_id)) {
+            grouped.set(row.barber_id, []);
+        }
+        grouped.get(row.barber_id).push(row);
+    });
+    const stamp = new Date().toISOString();
+    const mark = db.prepare("UPDATE bookings SET reminded_at = ? WHERE id = ?");
+    grouped.forEach((list, barberId) => {
+        const preview = list.slice(0, 4).map((row) => `${row.time} ${row.customer_name}`).join(", ");
+        const extra = list.length > 4 ? ` อีก ${list.length - 4} คิว` : "";
+        const message = `วันนี้มี ${list.length} คิว · ${preview}${extra}`;
+        notify(barberId, {
+            type: "day_reminder",
+            date: now.date,
+            count: list.length,
+            title: "คิววันนี้",
+            message: message
+        });
+        push.send(barberId, "StreetMan Barber Phuket — คิววันนี้", message);
+        list.forEach((row) => mark.run(stamp, row.id));
+    });
+}
+
 function takenSlots(barberId, date) {
     return db.prepare(`
         SELECT time FROM bookings
@@ -729,4 +769,6 @@ app.listen(PORT, () => {
     console.log("Customer booking: /book.html");
     console.log("Barber login: /barber/login.html");
     console.log("Barber dashboard: /barber/dashboard.html");
+    setTimeout(sendDayReminders, 8000);
+    setInterval(sendDayReminders, 60 * 1000);
 });
