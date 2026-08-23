@@ -17,7 +17,12 @@ self.addEventListener("push", (event) => {
             data = Object.assign(data, event.data.json());
         }
     } catch (err) {}
-    event.waitUntil(
+    event.waitUntil(Promise.all([
+        self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+            clients.forEach((client) => {
+                client.postMessage({ type: "queue_alert", title: data.title, body: data.body });
+            });
+        }),
         self.registration.showNotification(data.title, {
             body: data.body,
             icon: "../img/logo.PNG",
@@ -26,11 +31,11 @@ self.addEventListener("push", (event) => {
             silent: false,
             vibrate: [400, 120, 400, 120, 400, 180, 700],
             requireInteraction: true,
-            tag: "streetman-queue",
+            tag: "streetman-queue-" + Date.now(),
             renotify: true,
             data: { url: data.url || "dashboard.html" }
         })
-    );
+    ]));
 });
 
 self.addEventListener("notificationclick", (event) => {

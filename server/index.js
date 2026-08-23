@@ -11,6 +11,7 @@ const db = require("./db");
 const { seed } = require("./seed");
 const push = require("./push");
 const { ensureDataDir } = require("./paths");
+const xlsx = require("./xlsx");
 
 seed();
 
@@ -23,12 +24,12 @@ const COOKIE = "sm_session";
 app.set("trust proxy", 1);
 
 const SERVICES = {
-    haircut: { last: "19:00", price: 300, slots: 2 },
-    beard: { last: "19:30", price: 200, slots: 1 },
-    shave: { last: "19:30", price: 200, slots: 1 },
-    dye: { last: "19:30", price: 150, slots: 1 },
-    mustache: { last: "19:30", price: 500, slots: 1 },
-    stacking: { last: "18:30", price: 1000, slots: 3 }
+    haircut: { last: "19:00", price: 300, slots: 2, label: "ตัดผม" },
+    beard: { last: "19:30", price: 200, slots: 1, label: "ตกแต่งเครา" },
+    shave: { last: "19:30", price: 200, slots: 1, label: "โกนหนวด" },
+    dye: { last: "19:30", price: 150, slots: 1, label: "ย้อมผม" },
+    mustache: { last: "19:30", price: 500, slots: 1, label: "ตกแต่งหนวด" },
+    stacking: { last: "18:30", price: 1000, slots: 3, label: "เซ็ตทรง / Stacking" }
 };
 const SLOT_MINUTES = 30;
 
@@ -111,6 +112,50 @@ function monthRange(iso) {
         key,
         from: `${key}-01`,
         to: `${key}-${String(last).padStart(2, "0")}`
+    };
+}
+
+function weekRange(iso) {
+    const [year, month, day] = String(iso).split("-").map(Number);
+    const dow = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+    const offset = dow === 0 ? -6 : 1 - dow;
+    const from = addDays(iso, offset);
+    return { from, to: addDays(from, 6) };
+}
+
+function daySeries(barberId, from, to) {
+    const rows = bookingsBetween(barberId, from, to);
+    const grouped = new Map();
+    for (let cursor = from; cursor <= to; cursor = addDays(cursor, 1)) {
+        grouped.set(cursor, []);
+    }
+    rows.forEach((row) => {
+        if (grouped.has(row.date)) {
+            grouped.get(row.date).push(row);
+        }
+    });
+    return Array.from(grouped.entries()).map(([date, list]) => {
+        const sum = summarize(list);
+        return { date, done: sum.done, revenue: sum.revenue };
+    });
+}
+
+function incomeFor(barberId, date) {
+    const week = weekRange(date);
+    const month = monthRange(date);
+    return {
+        date,
+        day: Object.assign({ date }, summarize(bookingsBetween(barberId, date, date))),
+        week: Object.assign(
+            { from: week.from, to: week.to },
+            summarize(bookingsBetween(barberId, week.from, week.to)),
+            { series: daySeries(barberId, week.from, week.to) }
+        ),
+        month: Object.assign(
+            { key: month.key, from: month.from, to: month.to },
+            summarize(bookingsBetween(barberId, month.from, month.to)),
+            { series: daySeries(barberId, month.from, month.to) }
+        )
     };
 }
 
@@ -898,6 +943,172 @@ app.get("/api/barber/dashboard", requireBarber, (req, res) => {
         shop: req.barber.role === "owner" ? shopSummary(date) : null,
         shop_status: shopState()
     });
+});
+
+app.get("/api/barber/income", requireBarber, (req, res) => {
+    const date = String(req.query.date || todayISO());
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: "bad_date" });
+    }
+    const mine = incomeFor(req.barber.barber_id, date);
+    const owner = req.barber.role === "owner" || req.barber.barber_id === "rim";
+    res.json({
+        barber: {
+            id: req.barber.barber_id,
+            name: req.barber.name,
+            username: req.barber.username,
+            role: req.barber.role || "barber"
+        },
+        date,
+        day: mine.day,
+        week: mine.week,
+        month: mine.month,
+        shop: owner
+            ? Object.assign(incomeFor(null, date), {
+                barbers: listBarbers(false).map((barber) => Object.assign(
+                    { id: barber.id, name: barber.name, username: barber.username, active: Number(barber.active) === 1 },
+                    incomeFor(barber.id, date)
+                ))
+            })
+            : null
+    });
+});
+
+function serviceLabel(service) {
+    return (SERVICES[service] && SERVICES[service].label) || service;
+}
+
+function extrasLabel(row) {
+    const extras = Array.isArray(row.extras) ? row.extras : parseExtras(row.extras, row.service);
+    return extras.map(serviceLabel).join(", ");
+}
+
+function whenLabel(date, time) {
+    const parts = String(date || "").split("-");
+    if (parts.length !== 3) {
+        return `${date || ""} ${time || ""}`.trim();
+    }
+    return `${parts[2]}/${parts[1]} ${time || ""}`.trim();
+}
+
+function prettyPhone(phone) {
+    const digits = String(phone || "").replace(/\D/g, "");
+    if (digits.length === 10) {
+        return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+    return phone || "";
+}
+
+function serviceLine(row) {
+    const extra = extrasLabel(row);
+    const main = serviceLabel(row.service);
+    return extra ? `${main} + ${extra}` : main;
+}
+
+function payrollRange(date, period) {
+    if (period === "week") {
+        return weekRange(date);
+    }
+    const month = monthRange(date);
+    return { from: month.from, to: month.to };
+}
+
+function payrollRows(from, to) {
+    return db.prepare(`
+        SELECT b.id, b.customer_name, b.phone, b.service, b.extras, b.barber_id, b.date, b.time, b.note, b.status,
+               br.name AS barber_name
+        FROM bookings b
+        JOIN barbers br ON br.id = b.barber_id
+        WHERE b.status = 'done' AND b.date >= ? AND b.date <= ?
+        ORDER BY br.name, b.date, b.time, b.id
+    `).all(from, to).map(decorateBooking);
+}
+
+function sheetName(name) {
+    return String(name || "ช่าง").replace(/[:\\/?*[\]]/g, "").slice(0, 31) || "ช่าง";
+}
+
+function payrollBarberSheets(details) {
+    const s = xlsx.s;
+    const n = xlsx.n;
+    const grouped = new Map();
+    details.forEach((row) => {
+        if (!grouped.has(row.barber_id)) {
+            grouped.set(row.barber_id, []);
+        }
+        grouped.get(row.barber_id).push(row);
+    });
+    const h = xlsx.h;
+    return listBarbers(false).map((barber) => {
+        const rows = grouped.get(barber.id) || [];
+        const revenue = rows.reduce((sum, row) => sum + bookingAmount(row), 0);
+        return {
+            name: sheetName(barber.name),
+            widths: [16, 16, 16, 28, 12, 18],
+            rows: [
+                [h("วันเวลา"), h("ลูกค้า"), h("เบอร์"), h("บริการ"), h("ยอด"), h("หมายเหตุ")],
+                ...rows.map((row) => [
+                    s(whenLabel(row.date, row.time)),
+                    s(row.customer_name),
+                    s(prettyPhone(row.phone)),
+                    { v: serviceLine(row), w: true },
+                    n(row.amount),
+                    { v: row.note || "", w: true }
+                ]),
+                [s("รวม " + barber.name), s(""), s(""), s(rows.length + " คน"), n(revenue), s("")]
+            ]
+        };
+    });
+}
+
+function payrollWorkbook(from, to) {
+    const details = payrollRows(from, to);
+    const byBarber = new Map();
+    details.forEach((row) => {
+        const current = byBarber.get(row.barber_id) || {
+            name: row.barber_name,
+            done: 0,
+            revenue: 0
+        };
+        current.done += 1;
+        current.revenue += bookingAmount(row);
+        byBarber.set(row.barber_id, current);
+    });
+    const summary = listBarbers(false).map((barber) => {
+        const row = byBarber.get(barber.id) || { name: barber.name, done: 0, revenue: 0 };
+        return { name: barber.name, username: barber.username, done: row.done, revenue: row.revenue };
+    });
+    const totalDone = summary.reduce((sum, row) => sum + row.done, 0);
+    const totalRevenue = summary.reduce((sum, row) => sum + row.revenue, 0);
+    const s = xlsx.s;
+    const n = xlsx.n;
+    const h = xlsx.h;
+    return xlsx.workbook([
+        {
+            name: "สรุปจ่ายเงินเดือน",
+            widths: [14, 16, 12, 16, 20],
+            rows: [
+                [h("ช่าง"), h("ชื่อเข้าสู่ระบบ"), h("จำนวนหัว"), h("ยอดร้าน (บาท)"), h("ยอดจ่ายช่าง")],
+                ...summary.map((row) => [s(row.name), s(row.username), n(row.done), n(row.revenue), s("")]),
+                [s("รวมทั้งร้าน"), s(""), n(totalDone), n(totalRevenue), s("")]
+            ]
+        },
+        ...payrollBarberSheets(details)
+    ]);
+}
+
+app.get("/api/owner/payroll.xlsx", requireBarber, requireOwner, (req, res) => {
+    const date = String(req.query.date || todayISO());
+    const period = String(req.query.period || "month") === "week" ? "week" : "month";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: "bad_date" });
+    }
+    const range = payrollRange(date, period);
+    const body = payrollWorkbook(range.from, range.to);
+    const name = `StreetMan-payroll-${range.from}-${range.to}.xlsx`;
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${name}"`);
+    res.send(body);
 });
 
 function updateShop(req, res) {

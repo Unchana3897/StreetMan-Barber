@@ -130,7 +130,7 @@
             hint.classList.remove("d-none");
             return;
         }
-        hint.textContent = "กดเปิดแจ้งเตือนมือถือหนึ่งครั้ง แล้วอย่าปิดเสียงเครื่อง จะดังและสั่นแม้ปิดจอ";
+        hint.textContent = "กดเปิดแจ้งเตือน แล้วเปิดแอปคิวช่างค้างไว้ (อย่าปัดปิด) แตะหน้าจอหนึ่งครั้ง เสียงกีตาร์จะดังได้ตอนล็อกจอ อย่าปิดเสียงเครื่อง";
         hint.classList.remove("d-none");
     }
 
@@ -213,30 +213,56 @@
         });
         setNotifyBtn("แจ้งเตือนมือถือเปิดแล้ว", false);
         unlockAlert();
-        showToast("เปิดแจ้งเตือนมือถือแล้ว คิวใหม่จะดังและสั่นแม้ปิดจอ");
+        showToast("เปิดแจ้งเตือนแล้ว เปิดแอปนี้ค้างไว้ เสียงกีตาร์จะดังได้ตอนล็อกจอ");
     }
 
     var alertAudio = null;
+    var holdAudio = null;
+    var alertPlaying = false;
+
+    function setMediaSession() {
+        if (!navigator.mediaSession) {
+            return;
+        }
+        try {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: "คิวช่าง StreetMan",
+                artist: "รอคิวใหม่ · อย่าปิดแอปนี้",
+                artwork: [{ src: "../img/logo.PNG", sizes: "192x192", type: "image/png" }]
+            });
+            navigator.mediaSession.playbackState = "playing";
+        } catch (err) {}
+    }
+
+    function holdAlert() {
+        try {
+            if (!holdAudio) {
+                holdAudio = new Audio("silence.wav");
+                holdAudio.loop = true;
+                holdAudio.preload = "auto";
+                holdAudio.playsInline = true;
+            }
+            holdAudio.muted = false;
+            holdAudio.volume = 1;
+            var play = holdAudio.play();
+            if (play && play.catch) {
+                play.catch(function () {});
+            }
+            setMediaSession();
+        } catch (err) {}
+    }
 
     function unlockAlert() {
+        holdAlert();
         try {
             if (!alertAudio) {
                 alertAudio = new Audio("Guitar.mp3");
                 alertAudio.preload = "auto";
-            }
-            alertAudio.volume = 0;
-            var play = alertAudio.play();
-            if (play && play.then) {
-                play.then(function () {
-                    alertAudio.pause();
-                    alertAudio.currentTime = 0;
-                    alertAudio.volume = 1;
-                }).catch(function () {
-                    alertAudio.volume = 1;
+                alertAudio.playsInline = true;
+                alertAudio.addEventListener("ended", function () {
+                    alertPlaying = false;
+                    holdAlert();
                 });
-            } else {
-                alertAudio.pause();
-                alertAudio.volume = 1;
             }
         } catch (err) {}
     }
@@ -251,15 +277,25 @@
 
     function beep() {
         buzz();
+        unlockAlert();
         try {
             if (!alertAudio) {
                 alertAudio = new Audio("Guitar.mp3");
+                alertAudio.playsInline = true;
+                alertAudio.addEventListener("ended", function () {
+                    alertPlaying = false;
+                    holdAlert();
+                });
             }
+            alertPlaying = true;
+            alertAudio.muted = false;
             alertAudio.volume = 1;
             alertAudio.currentTime = 0;
             var play = alertAudio.play();
+            setMediaSession();
             if (play && play.catch) {
                 play.catch(function () {
+                    alertPlaying = false;
                     var ctx = new (window.AudioContext || window.webkitAudioContext)();
                     if (ctx.resume) {
                         ctx.resume();
@@ -344,82 +380,8 @@
         return "฿" + Number(value || 0).toLocaleString("th-TH");
     }
 
-    function monthLabel(key) {
-        var bits = String(key || "").split("-").map(Number);
-        if (!bits[0] || !bits[1]) {
-            return "เดือนนี้";
-        }
-        return new Date(bits[0], bits[1] - 1, 1).toLocaleDateString("th-TH", {
-            month: "long",
-            year: "numeric"
-        });
-    }
-
     function isOwner(barber) {
         return barber && (barber.role === "owner" || barber.id === "rim");
-    }
-
-    function renderMine(summary) {
-        var el = document.getElementById("my-summary");
-        summary = summary || {};
-        var day = summary.day || {};
-        var month = summary.month || {};
-        el.innerHTML =
-            "<h2>สรุปยอดของฉัน</h2>" +
-            "<div class=\"summary-grid\">" +
-            "<div class=\"summary-card\"><span>วันนี้ ตัดเสร็จ</span><strong></strong><span class=\"day-rev\"></span></div>" +
-            "<div class=\"summary-card\"><span class=\"month-title\">เดือนนี้ ตัดเสร็จ</span><strong class=\"month-done\"></strong><span class=\"month-rev\"></span></div>" +
-            "</div>";
-        el.querySelector("strong").textContent = (day.done || 0) + " คน";
-        el.querySelector(".day-rev").textContent = "คิววันนี้ " + (day.booked || 0) + " · ยอด " + baht(day.revenue);
-        el.querySelector(".month-title").textContent = monthLabel(month.key) + " ตัดเสร็จ";
-        el.querySelector(".month-done").textContent = (month.done || 0) + " คน";
-        el.querySelector(".month-rev").textContent = "ยอด " + baht(month.revenue);
-    }
-
-    function renderShop(shop, barber) {
-        var el = document.getElementById("shop-summary");
-        var link = document.getElementById("manage-link");
-        var owner = isOwner(barber);
-        link.classList.toggle("d-none", !owner);
-        if (!owner || !shop) {
-            el.className = "shop-panel d-none";
-            el.innerHTML = "";
-            return;
-        }
-        var day = shop.day || {};
-        var month = shop.month || {};
-        el.className = "shop-panel";
-        var rows = (shop.barbers || []).map(function (row) {
-            return "<tr>" +
-                "<td><strong></strong><span></span></td>" +
-                "<td></td>" +
-                "<td></td>" +
-                "</tr>";
-        }).join("");
-        el.innerHTML =
-            "<h2>ยอดร้านทั้งหมด</h2>" +
-            "<div class=\"shop-heads\"><span>วันนี้ตัดไปแล้ว</span><strong></strong>" +
-            "<span class=\"shop-day-meta\"></span></div>" +
-            "<p class=\"staff-copy shop-month-meta\"></p>" +
-            "<table class=\"shop-table\"><thead><tr><th>ช่าง</th><th>วันนี้</th><th>เดือนนี้</th></tr></thead><tbody>" +
-            rows + "</tbody></table>";
-        el.querySelector(".shop-heads strong").textContent = (day.done || 0) + " คน";
-        el.querySelector(".shop-day-meta").textContent =
-            "คิววันนี้ " + (day.booked || 0) + " · รออีก " + (day.remaining || 0) + " · ยอด " + baht(day.revenue);
-        el.querySelector(".shop-month-meta").textContent =
-            monthLabel(month.key) + " ทั้งร้านตัดเสร็จ " + (month.done || 0) + " คน · ยอด " + baht(month.revenue);
-        var bodyRows = el.querySelectorAll("tbody tr");
-        (shop.barbers || []).forEach(function (row, index) {
-            var tr = bodyRows[index];
-            if (!tr) {
-                return;
-            }
-            tr.querySelector("strong").textContent = row.name;
-            tr.querySelector("span").textContent = (row.active ? "" : "ปิดงาน · ") + row.username;
-            tr.children[1].innerHTML = (row.day.done || 0) + " คน<br><span>" + baht(row.day.revenue) + "</span>";
-            tr.children[2].innerHTML = (row.month.done || 0) + " คน<br><span>" + baht(row.month.revenue) + "</span>";
-        });
     }
 
     function timeRange(row) {
@@ -599,8 +561,10 @@
         latest = data;
         document.getElementById("barber-name").textContent = "คิวของ " + data.barber.name;
         renderStats(data.stats);
-        renderMine(data.summary);
-        renderShop(data.shop, data.barber);
+        var manage = document.getElementById("manage-link");
+        if (manage) {
+            manage.classList.toggle("d-none", !isOwner(data.barber));
+        }
         renderWeek(data.upcoming, data.date);
         renderShopStatus(data);
         renderNext(data.next);
@@ -754,6 +718,16 @@
         });
         document.addEventListener("touchstart", unlockAlert, { once: true });
         document.addEventListener("click", unlockAlert, { once: true });
+        document.addEventListener("visibilitychange", function () {
+            holdAlert();
+        });
+        if (navigator.serviceWorker) {
+            navigator.serviceWorker.addEventListener("message", function (event) {
+                if (event.data && event.data.type === "queue_alert") {
+                    beep();
+                }
+            });
+        }
         document.getElementById("shop-close-btn").addEventListener("click", toggleShop);
 
         window.StreetManStore.listen(onNewBooking, onDayReminder);

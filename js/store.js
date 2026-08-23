@@ -101,6 +101,59 @@
         return next.toISOString().slice(0, 10);
     }
 
+    function weekRange(iso) {
+        var bits = String(iso).split("-").map(Number);
+        var dow = new Date(Date.UTC(bits[0], bits[1] - 1, bits[2])).getUTCDay();
+        var offset = dow === 0 ? -6 : 1 - dow;
+        var from = addDays(iso, offset);
+        return { from: from, to: addDays(from, 6) };
+    }
+
+    function daySeries(barberId, from, to) {
+        var rows = readQueue().filter(function (row) {
+            return (!barberId || row.barber_id === barberId) && row.date >= from && row.date <= to;
+        });
+        var series = [];
+        for (var cursor = from; cursor <= to; cursor = addDays(cursor, 1)) {
+            var sum = summarize(rows.filter(function (row) { return row.date === cursor; }));
+            series.push({ date: cursor, done: sum.done, revenue: sum.revenue });
+        }
+        return series;
+    }
+
+    function incomeFor(barberId, date) {
+        var week = weekRange(date);
+        var month = monthRangeLocal(date);
+        var all = readQueue().filter(function (row) {
+            return !barberId || row.barber_id === barberId;
+        });
+        return {
+            date: date,
+            day: Object.assign({ date: date }, summarize(all.filter(function (row) { return row.date === date; }))),
+            week: Object.assign(
+                { from: week.from, to: week.to },
+                summarize(all.filter(function (row) { return row.date >= week.from && row.date <= week.to; })),
+                { series: daySeries(barberId, week.from, week.to) }
+            ),
+            month: Object.assign(
+                { key: month.key, from: month.from, to: month.to },
+                summarize(all.filter(function (row) { return row.date >= month.from && row.date <= month.to; })),
+                { series: daySeries(barberId, month.from, month.to) }
+            )
+        };
+    }
+
+    function monthRangeLocal(date) {
+        var key = monthKey(date);
+        var bits = key.split("-").map(Number);
+        var last = new Date(Date.UTC(bits[0], bits[1], 0)).getUTCDate();
+        return {
+            key: key,
+            from: key + "-01",
+            to: key + "-" + String(last).padStart(2, "0")
+        };
+    }
+
     function readStaff() {
         var extra = [];
         try {
@@ -620,6 +673,147 @@
             }
             var barber = await Store.me();
             return buildDashboard(barber, date);
+        },
+        payrollFile: async function (date, period) {
+            date = date || bangkokNow().date;
+            period = period === "week" ? "week" : "month";
+            var me = await Store.me();
+            if (me.role !== "owner" && me.id !== "rim") {
+                var denied = new Error("owner_required");
+                denied.status = 403;
+                throw denied;
+            }
+            if (await usingNode()) {
+                var headers = authHeaders();
+                var res = await fetch(
+                    "/api/owner/payroll.xlsx?date=" + encodeURIComponent(date) + "&period=" + period,
+                    { credentials: "same-origin", headers: headers }
+                );
+                if (res.status === 401) {
+                    var login = new Error("login");
+                    login.status = 401;
+                    throw login;
+                }
+                if (!res.ok) {
+                    var fail = new Error("export_failed");
+                    fail.status = res.status;
+                    throw fail;
+                }
+                var blob = await res.blob();
+                var match = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") || "");
+                return { blob: blob, filename: match ? match[1] : "StreetMan-payroll.xlsx" };
+            }
+            var range = period === "week" ? weekRange(date) : monthRangeLocal(date);
+            var names = {};
+            readStaff().forEach(function (row) {
+                names[row.id] = row.name;
+            });
+            var labels = {
+                haircut: "ตัดผม",
+                beard: "ตกแต่งเครา",
+                shave: "โกนหนวด",
+                dye: "ย้อมผม",
+                mustache: "ตกแต่งหนวด",
+                stacking: "เซ็ตทรง / Stacking"
+            };
+            function esc(value) {
+                return String(value == null ? "" : value)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;");
+            }
+            function cell(value, number) {
+                if (number) {
+                    return "<Cell><Data ss:Type=\"Number\">" + (Number(value) || 0) + "</Data></Cell>";
+                }
+                return "<Cell><Data ss:Type=\"String\">" + esc(value) + "</Data></Cell>";
+            }
+            var details = readQueue().filter(function (row) {
+                return row.status === "done" && row.date >= range.from && row.date <= range.to;
+            }).sort(function (a, b) {
+                return String(a.barber_id + a.date + a.time).localeCompare(b.barber_id + b.date + b.time);
+            }).map(decorateBooking);
+            var totals = {};
+            details.forEach(function (row) {
+                if (!totals[row.barber_id]) {
+                    totals[row.barber_id] = { done: 0, revenue: 0 };
+                }
+                totals[row.barber_id].done += 1;
+                totals[row.barber_id].revenue += bookingAmount(row);
+            });
+            var summaryXml = readStaff().map(function (row) {
+                var total = totals[row.id] || { done: 0, revenue: 0 };
+                return "<Row>" + cell(row.name) + cell(row.username) + cell(total.done, true) + cell(total.revenue, true) + cell("") + "</Row>";
+            }).join("");
+            var grouped = {};
+            details.forEach(function (row) {
+                if (!grouped[row.barber_id]) {
+                    grouped[row.barber_id] = [];
+                }
+                grouped[row.barber_id].push(row);
+            });
+            var barberSheets = readStaff().map(function (barber) {
+                var rows = grouped[barber.id] || [];
+                var body = "<Row>" + cell("วันที่") + cell("เวลา") + cell("ลูกค้า") + cell("เบอร์") + cell("บริการ") + cell("ของเพิ่ม") + cell("ยอด (บาท)") + cell("หมายเหตุ") + "</Row>";
+                rows.forEach(function (row) {
+                    body += "<Row>" +
+                        cell(row.date) + cell(row.time) +
+                        cell(row.customer_name) + cell(row.phone) + cell(labels[row.service] || row.service) +
+                        cell((row.extras || []).map(function (item) { return labels[item] || item; }).join(", ")) +
+                        cell(row.amount, true) + cell(row.note || "") +
+                        "</Row>";
+                });
+                var revenue = rows.reduce(function (sum, row) { return sum + bookingAmount(row); }, 0);
+                body += "<Row>" + cell("รวม " + barber.name) + cell("") + cell("") + cell("") + cell("") + cell("") + cell(revenue, true) + cell(rows.length + " คน") + "</Row>";
+                return "<Worksheet ss:Name=\"" + esc(barber.name) + "\"><Table>" + body + "</Table></Worksheet>";
+            }).join("");
+            var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+                "<?mso-application progid=\"Excel.Sheet\"?>" +
+                "<Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\" xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\">" +
+                "<Worksheet ss:Name=\"สรุปจ่ายเงินเดือน\"><Table>" +
+                "<Row>" + cell("ช่าง") + cell("ชื่อเข้าสู่ระบบ") + cell("จำนวนหัว") + cell("ยอดร้าน (บาท)") + cell("ยอดจ่ายช่าง (กรอกเอง)") + "</Row>" +
+                summaryXml +
+                "</Table></Worksheet>" +
+                barberSheets +
+                "</Workbook>";
+            return {
+                blob: new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" }),
+                filename: "StreetMan-payroll-" + range.from + "-" + range.to + ".xls"
+            };
+        },
+        income: async function (date) {
+            date = date || bangkokNow().date;
+            if (await usingNode()) {
+                return nodeFetch("/api/barber/income?date=" + encodeURIComponent(date));
+            }
+            var barber = await Store.me();
+            var mine = incomeFor(barber.id, date);
+            var owner = barber.role === "owner" || barber.id === "rim";
+            return {
+                barber: {
+                    id: barber.id,
+                    name: barber.name,
+                    username: barber.username,
+                    role: barber.role || (barber.id === "rim" ? "owner" : "barber")
+                },
+                date: date,
+                day: mine.day,
+                week: mine.week,
+                month: mine.month,
+                shop: owner
+                    ? Object.assign(incomeFor(null, date), {
+                        barbers: readStaff().map(function (row) {
+                            return Object.assign({
+                                id: row.id,
+                                name: row.name,
+                                username: row.username,
+                                active: row.active !== false
+                            }, incomeFor(row.id, date));
+                        })
+                    })
+                    : null
+            };
         },
         updateStatus: async function (id, status) {
             if (await usingNode()) {
