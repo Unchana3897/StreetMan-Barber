@@ -330,6 +330,15 @@
     margin-bottom: 16px;
 }
 
+.shop-closed-banner {
+    margin: 0 16px 0;
+    padding: 12px 16px;
+    background: #EB1616;
+    color: #fff;
+    font-weight: 600;
+    text-align: center;
+}
+
 .shop-table {
     width: 100%;
     border-collapse: collapse;

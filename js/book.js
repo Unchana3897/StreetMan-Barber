@@ -15,6 +15,15 @@
         stacking: "18:30"
     };
 
+    var SLOT_COUNT = {
+        haircut: 2,
+        beard: 1,
+        shave: 1,
+        dye: 1,
+        mustache: 1,
+        stacking: 3
+    };
+
     var TIME_SLOTS = [
         "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
         "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
@@ -47,11 +56,20 @@
         return /\.github\.io$/i.test(window.location.hostname);
     }
 
+    function occupyRange(start, count) {
+        var index = TIME_SLOTS.indexOf(start);
+        if (index < 0 || count < 1 || index + count > TIME_SLOTS.length) {
+            return null;
+        }
+        return TIME_SLOTS.slice(index, index + count);
+    }
+
     function localSlots(service, date) {
         var last = LAST_SLOT[service] || "19:00";
+        var count = SLOT_COUNT[service] || 1;
         var today = todayISO();
         return TIME_SLOTS.filter(function (slot) {
-            if (slot > last) {
+            if (slot > last || !occupyRange(slot, count)) {
                 return false;
             }
             if (date === today && slot <= nowHM()) {
@@ -82,9 +100,54 @@
         alertEl.scrollIntoView({ behavior: "smooth", block: "center" });
     }
 
+    function bookingErrorCode(err) {
+        return err && ((err.body && err.body.error) || err.message);
+    }
+
     function isSlotTakenError(err) {
-        var code = err && ((err.body && err.body.error) || err.message);
-        return (err && err.status === 409) || code === "slot_taken" || code === "shop_full";
+        var code = bookingErrorCode(err);
+        return (err && err.status === 409) || (err && err.status === 403) ||
+            code === "slot_taken" || code === "shop_full" || code === "barber_full" ||
+            code === "shop_closed" || code === "already_booked";
+    }
+
+    function bookingErrorMessage(err) {
+        var code = bookingErrorCode(err);
+        if (code === "shop_closed") {
+            return t("book_shop_closed");
+        }
+        if (code === "already_booked") {
+            var existing = err.body && err.body.booking;
+            if (existing && existing.date && existing.time) {
+                return t("book_already") + " · " + existing.date + " " + existing.time;
+            }
+            return t("book_already");
+        }
+        if (code === "barber_full") {
+            return t("book_barber_full");
+        }
+        if (code === "shop_full") {
+            return t("book_shop_full");
+        }
+        return t("book_slot_taken");
+    }
+
+    function setFormClosed(closed) {
+        var submit = form.querySelector("[type='submit']");
+        var fields = form.querySelectorAll("input, select, textarea, button");
+        Array.prototype.forEach.call(fields, function (el) {
+            if (el.id === "refresh-slots") {
+                el.disabled = false;
+                return;
+            }
+            if (el.type === "submit") {
+                el.disabled = Boolean(closed);
+                return;
+            }
+        });
+        if (submit) {
+            submit.disabled = Boolean(closed);
+        }
     }
 
     async function loadSlots(showDone) {
@@ -92,11 +155,21 @@
         var date = dateEl.value || todayISO();
         var barber = barberEl.value || "any";
         try {
-            var slots = window.StreetManStore
+            var data = window.StreetManStore
                 ? await window.StreetManStore.availableSlots(service, date, barber)
                 : localSlots(service, date);
+            var slots = Array.isArray(data) ? data : ((data && data.slots) || []);
+            var closed = !Array.isArray(data) && data && data.closed;
             fillSlots(slots);
-            if (showDone) {
+            if (closed) {
+                setFormClosed(true);
+                showAlert(false, t("book_shop_closed"));
+                return;
+            }
+            setFormClosed(false);
+            if (!slots.length && serviceEl.value) {
+                showAlert(false, t("book_no_slots"));
+            } else if (showDone) {
                 showAlert(true, t("book_slots_updated"));
             }
         } catch (err) {
@@ -278,9 +351,10 @@
             showBookingSlip(data.booking);
         } catch (err) {
             if (isSlotTakenError(err)) {
+                var message = bookingErrorMessage(err);
                 timeEl.value = "";
-                showAlert(false, t("book_slot_taken"));
-                window.alert(t("book_slot_taken"));
+                showAlert(false, message);
+                window.alert(message);
                 loadSlots();
                 return;
             }

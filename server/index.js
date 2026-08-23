@@ -1,6 +1,7 @@
 "use strict";
 
 const path = require("path");
+const os = require("os");
 const crypto = require("crypto");
 const express = require("express");
 const cookieParser = require("cookie-parser");
@@ -16,18 +17,20 @@ seed();
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || "streetman-local-secret";
-const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
+const SESSION_MS = 10 * 365 * 24 * 60 * 60 * 1000;
+const COOKIE_MS = 400 * 24 * 60 * 60 * 1000;
 const COOKIE = "sm_session";
 app.set("trust proxy", 1);
 
 const SERVICES = {
-    haircut: { last: "19:00", price: 300 },
-    beard: { last: "19:30", price: 200 },
-    shave: { last: "19:30", price: 200 },
-    dye: { last: "19:30", price: 150 },
-    mustache: { last: "19:30", price: 500 },
-    stacking: { last: "18:30", price: 1000 }
+    haircut: { last: "19:00", price: 300, slots: 2 },
+    beard: { last: "19:30", price: 200, slots: 1 },
+    shave: { last: "19:30", price: 200, slots: 1 },
+    dye: { last: "19:30", price: 150, slots: 1 },
+    mustache: { last: "19:30", price: 500, slots: 1 },
+    stacking: { last: "18:30", price: 1000, slots: 3 }
 };
+const SLOT_MINUTES = 30;
 
 const TIME_SLOTS = [
     "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
@@ -53,7 +56,7 @@ app.use("/api", (req, res, next) => {
 app.get("/robots.txt", (req, res) => {
     const origin = `${req.protocol}://${req.get("host")}`;
     res.type("text/plain").send(
-        `User-agent: *\nAllow: /\nDisallow: /barber\nDisallow: /api/\nSitemap: ${origin}/sitemap.xml\n`
+        `User-agent: *\nAllow: /\nDisallow: /barber\nDisallow: /api/\nDisallow: /cancel.html\nSitemap: ${origin}/sitemap.xml\n`
     );
 });
 
@@ -156,6 +159,69 @@ function extrasTotal(extras) {
     return extras.reduce((sum, item) => sum + ((SERVICES[item] && SERVICES[item].price) || 0), 0);
 }
 
+function serviceSlots(service) {
+    return (SERVICES[service] && SERVICES[service].slots) || 1;
+}
+
+function extrasSlotCount(extras) {
+    return (extras || []).reduce((sum, item) => sum + serviceSlots(item), 0);
+}
+
+function bookingSlotCount(row) {
+    const extras = Array.isArray(row.extras) ? row.extras : parseExtras(row.extras, row.service);
+    return serviceSlots(row.service) + extrasSlotCount(extras);
+}
+
+function occupyRange(start, count, clamp) {
+    const index = TIME_SLOTS.indexOf(start);
+    if (index < 0 || count < 1) {
+        return null;
+    }
+    if (index + count > TIME_SLOTS.length) {
+        return clamp ? TIME_SLOTS.slice(index) : null;
+    }
+    return TIME_SLOTS.slice(index, index + count);
+}
+
+function slotEnd(start, count) {
+    const [hour, minute] = String(start || "00:00").split(":").map(Number);
+    const total = hour * 60 + minute + count * SLOT_MINUTES;
+    return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function dayRows(barberId, date) {
+    return db.prepare(`
+        SELECT id, service, extras, time
+        FROM bookings
+        WHERE barber_id = ? AND date = ? AND status != 'cancelled'
+    `).all(barberId, date);
+}
+
+function occupiedSet(barberId, date, exceptId) {
+    const taken = new Set();
+    dayRows(barberId, date).forEach((row) => {
+        if (exceptId && Number(row.id) === Number(exceptId)) {
+            return;
+        }
+        const range = occupyRange(row.time, bookingSlotCount(row), true);
+        (range || [row.time]).forEach((slot) => taken.add(slot));
+    });
+    return taken;
+}
+
+function canPlace(barberId, date, time, service, extras, exceptId) {
+    const count = serviceSlots(service) + extrasSlotCount(extras);
+    const range = occupyRange(time, count, Boolean(exceptId));
+    if (!range) {
+        return { error: "bad_time" };
+    }
+    const occupied = occupiedSet(barberId, date, exceptId);
+    if (range.some((slot) => occupied.has(slot))) {
+        return { error: exceptId ? "extra_overlap" : "slot_taken" };
+    }
+    return { ok: true, range, count };
+}
+
 function bookingAmount(row) {
     const extras = Array.isArray(row.extras) ? row.extras : parseExtras(row.extras, row.service);
     const base = (SERVICES[row.service] && SERVICES[row.service].price) || 0;
@@ -169,11 +235,99 @@ function decorateBooking(row) {
     const extras = parseExtras(row.extras, row.service);
     const extraTotal = extrasTotal(extras);
     const base = (SERVICES[row.service] && SERVICES[row.service].price) || 0;
-    return Object.assign({}, row, {
+    const slots = serviceSlots(row.service) + extrasSlotCount(extras);
+    const out = Object.assign({}, row, {
         extras,
         extra_total: extraTotal,
-        amount: base + extraTotal
+        amount: base + extraTotal,
+        slots,
+        end_time: slotEnd(row.time, slots)
     });
+    delete out.cancel_token;
+    return out;
+}
+
+function makeCancelToken() {
+    return crypto.randomBytes(8).toString("hex");
+}
+
+function normalizeToken(value) {
+    return String(value || "").trim().toLowerCase().replace(/[^a-f0-9]/g, "");
+}
+
+function maskPhone(phone) {
+    const digits = String(phone || "").replace(/\D/g, "");
+    if (digits.length < 4) {
+        return "****";
+    }
+    return "*".repeat(Math.max(0, digits.length - 4)) + digits.slice(-4);
+}
+
+function phoneKey(phone) {
+    let digits = String(phone || "").replace(/\D/g, "");
+    if (digits.startsWith("66") && digits.length >= 11) {
+        digits = "0" + digits.slice(2);
+    }
+    return digits;
+}
+
+function findOpenBooking(phone) {
+    const key = phoneKey(phone);
+    if (!key) {
+        return null;
+    }
+    const now = bangkokNow();
+    const rows = db.prepare(`
+        SELECT id, customer_name, phone, service, barber_id, date, time, status
+        FROM bookings
+        WHERE status IN ('pending', 'confirmed')
+          AND (date > ? OR (date = ? AND time >= ?))
+        ORDER BY date, time, id
+    `).all(now.date, now.date, now.time);
+    return rows.find((row) => phoneKey(row.phone) === key) || null;
+}
+
+function slotMinutes(date, time) {
+    const [year, month, day] = String(date).split("-").map(Number);
+    const [hour, minute] = String(time || "00:00").split(":").map(Number);
+    return Date.UTC(year, month - 1, day, hour, minute) / 60000;
+}
+
+function customerCancelCheck(row) {
+    if (!row) {
+        return { error: "not_found" };
+    }
+    if (row.status === "cancelled") {
+        return { error: "already_cancelled" };
+    }
+    if (row.status === "done") {
+        return { error: "already_done" };
+    }
+    const now = bangkokNow();
+    const remain = slotMinutes(row.date, row.time) - slotMinutes(now.date, now.time);
+    if (remain < 120) {
+        return { error: "too_late" };
+    }
+    return { ok: true };
+}
+
+function publicBooking(row) {
+    const booking = decorateBooking(row);
+    const check = customerCancelCheck(row);
+    return {
+        id: booking.id,
+        customer_name: booking.customer_name,
+        phone: maskPhone(booking.phone),
+        service: booking.service,
+        barber_id: booking.barber_id,
+        barber_name: booking.barber_name,
+        date: booking.date,
+        time: booking.time,
+        end_time: booking.end_time,
+        status: booking.status,
+        can_cancel: !check.error,
+        cancel_error: check.error || null
+    };
 }
 
 function summarize(rows) {
@@ -265,7 +419,8 @@ function addDays(iso, n) {
 
 function slotsFor(service) {
     const last = (SERVICES[service] && SERVICES[service].last) || "19:00";
-    return TIME_SLOTS.filter((slot) => slot <= last);
+    const count = serviceSlots(service);
+    return TIME_SLOTS.filter((slot) => slot <= last && occupyRange(slot, count, false));
 }
 
 function tooMany(ip) {
@@ -286,13 +441,25 @@ function cookieOptions(req) {
         httpOnly: true,
         sameSite: "lax",
         secure: req.secure || req.headers["x-forwarded-proto"] === "https",
-        maxAge: SESSION_MS,
+        maxAge: COOKIE_MS,
         path: "/"
     };
 }
 
+function sessionToken(req) {
+    const header = String(req.headers["x-session-token"] || "").trim();
+    if (/^[a-f0-9]{64}$/i.test(header)) {
+        return header;
+    }
+    const query = String((req.query && req.query.token) || "").trim();
+    if (/^[a-f0-9]{64}$/i.test(query) && req.path === "/api/barber/events") {
+        return query;
+    }
+    return req.cookies[COOKIE] || "";
+}
+
 function readSession(req) {
-    const token = req.cookies[COOKIE];
+    const token = sessionToken(req);
     if (!token) {
         return null;
     }
@@ -309,10 +476,6 @@ function readSession(req) {
 }
 
 function touchSession(req, res, session) {
-    const remaining = Number(session.expires_at) - Date.now();
-    if (remaining > SESSION_MS / 2) {
-        return;
-    }
     const expires = Date.now() + SESSION_MS;
     db.prepare("UPDATE sessions SET expires_at = ? WHERE token = ?").run(expires, session.token);
     res.cookie(COOKIE, session.token, cookieOptions(req));
@@ -329,10 +492,36 @@ function requireBarber(req, res, next) {
 }
 
 function requireOwner(req, res, next) {
-    if (!req.barber || req.barber.role !== "owner") {
+    if (!req.barber || (req.barber.role !== "owner" && req.barber.barber_id !== "rim")) {
         return res.status(403).json({ error: "owner_required" });
     }
     next();
+}
+
+function setting(key) {
+    const row = db.prepare("SELECT value FROM shop_settings WHERE key = ?").get(key);
+    return row ? row.value : "";
+}
+
+function shopState() {
+    return {
+        closed: setting("closed") === "1",
+        note: setting("closed_note") || ""
+    };
+}
+
+function setShopState(closed, note) {
+    db.prepare(`
+        INSERT INTO shop_settings (key, value) VALUES ('closed', ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    `).run(closed ? "1" : "0");
+    if (note != null) {
+        db.prepare(`
+            INSERT INTO shop_settings (key, value) VALUES ('closed_note', ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        `).run(String(note).trim().slice(0, 200));
+    }
+    return shopState();
 }
 
 function notify(barberId, payload) {
@@ -390,30 +579,25 @@ function sendDayReminders() {
     });
 }
 
-function takenSlots(barberId, date) {
-    return db.prepare(`
-        SELECT time FROM bookings
-        WHERE barber_id = ? AND date = ? AND status != 'cancelled'
-    `).all(barberId, date).map((row) => row.time);
-}
-
-function pickBarber(barberId, date, time) {
+function pickBarber(barberId, date, time, service) {
     const ids = activeIds();
     if (barberId && barberId !== "any") {
         if (!ids.includes(barberId)) {
             return null;
         }
-        if (takenSlots(barberId, date).includes(time)) {
-            return { error: "slot_taken" };
+        const place = canPlace(barberId, date, time, service, []);
+        if (place.error) {
+            return { error: place.error };
         }
         return { barberId };
     }
     for (const id of ids) {
-        if (!takenSlots(id, date).includes(time)) {
+        const place = canPlace(id, date, time, service, []);
+        if (!place.error) {
             return { barberId: id };
         }
     }
-    return { error: "shop_full" };
+    return { error: "slot_taken" };
 }
 
 function isPastSlot(date, time) {
@@ -428,24 +612,40 @@ app.get("/api/slots", (req, res) => {
     if (!SERVICES[service]) {
         return res.status(400).json({ error: "bad_service" });
     }
-    const possible = slotsFor(service).filter((slot) => !isPastSlot(date, slot));
-    let blocked = [];
-    if (barberId !== "any" && activeIds().includes(barberId)) {
-        blocked = takenSlots(barberId, date);
-    } else {
-        const ids = activeIds();
-        blocked = possible.filter((slot) => ids.length > 0 && ids.every((id) => takenSlots(id, date).includes(slot)));
+    const status = shopState();
+    if (status.closed) {
+        return res.json({
+            date,
+            slots: [],
+            closed: true,
+            note: status.note
+        });
     }
+    const possible = slotsFor(service).filter((slot) => !isPastSlot(date, slot));
+    const ids = activeIds();
+    const open = (id, slot) => !canPlace(id, date, slot, service, []).error;
+    const slots = barberId !== "any" && ids.includes(barberId)
+        ? possible.filter((slot) => open(barberId, slot))
+        : possible.filter((slot) => ids.some((id) => open(id, slot)));
     res.json({
         date,
-        slots: possible.filter((slot) => !blocked.includes(slot))
+        slots,
+        closed: false,
+        note: status.note
     });
+});
+
+app.get("/api/shop", (req, res) => {
+    res.json(shopState());
 });
 
 app.post("/api/bookings", (req, res) => {
     const ip = req.ip || req.socket.remoteAddress || "unknown";
     if (tooMany(ip)) {
         return res.status(429).json({ error: "too_many" });
+    }
+    if (shopState().closed) {
+        return res.status(403).json({ error: "shop_closed" });
     }
 
     const name = String(req.body.customer_name || req.body.name || "").trim();
@@ -472,18 +672,41 @@ app.post("/api/bookings", (req, res) => {
         return res.status(400).json({ error: "bad_time" });
     }
 
-    const chosen = pickBarber(requestedBarber, date, time);
-    if (!chosen || chosen.error) {
-        return res.status(409).json({ error: (chosen && chosen.error) || "slot_taken" });
-    }
-
     const createdAt = new Date().toISOString();
+    let chosen;
     let info;
+    const insertBooking = db.transaction(() => {
+        if (shopState().closed) {
+            return { error: "shop_closed" };
+        }
+        const existing = findOpenBooking(phone);
+        if (existing) {
+            return {
+                error: "already_booked",
+                existing: { date: existing.date, time: existing.time, service: existing.service }
+            };
+        }
+        const picked = pickBarber(requestedBarber, date, time, service);
+        if (!picked || picked.error) {
+            return { error: (picked && picked.error) || "slot_taken" };
+        }
+        const row = db.prepare(`
+            INSERT INTO bookings (customer_name, phone, service, barber_id, date, time, note, status, created_at, cancel_token)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+        `).run(name, phone, service, picked.barberId, date, time, note || null, createdAt, makeCancelToken());
+        return { picked, row };
+    });
     try {
-        info = db.prepare(`
-            INSERT INTO bookings (customer_name, phone, service, barber_id, date, time, note, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)
-        `).run(name, phone, service, chosen.barberId, date, time, note || null, createdAt);
+        const result = insertBooking();
+        if (result.error) {
+            const body = { error: result.error };
+            if (result.existing) {
+                body.booking = result.existing;
+            }
+            return res.status(result.error === "shop_closed" ? 403 : 409).json(body);
+        }
+        chosen = result.picked;
+        info = result.row;
     } catch (err) {
         if (err && String(err.code || "").startsWith("SQLITE_CONSTRAINT")) {
             return res.status(409).json({ error: "slot_taken" });
@@ -491,16 +714,67 @@ app.post("/api/bookings", (req, res) => {
         throw err;
     }
 
-    const booking = decorateBooking(db.prepare(`
+    const created = db.prepare(`
         SELECT b.*, br.name AS barber_name
         FROM bookings b
         JOIN barbers br ON br.id = b.barber_id
         WHERE b.id = ?
-    `).get(info.lastInsertRowid));
-
-    notify(chosen.barberId, { type: "new_booking", booking });
+    `).get(info.lastInsertRowid);
+    const booking = decorateBooking(created);
+    notify(chosen.barberId, { type: "new_booking", booking: booking });
     push.notifyPush(chosen.barberId, booking);
-    res.status(201).json({ ok: true, booking });
+    res.status(201).json({
+        ok: true,
+        booking: Object.assign({}, booking, { cancel_token: created.cancel_token })
+    });
+});
+
+function bookingByToken(token) {
+    const clean = normalizeToken(token);
+    if (clean.length < 12) {
+        return null;
+    }
+    return db.prepare(`
+        SELECT b.*, br.name AS barber_name
+        FROM bookings b
+        JOIN barbers br ON br.id = b.barber_id
+        WHERE b.cancel_token = ?
+    `).get(clean);
+}
+
+app.get("/api/bookings/lookup", (req, res) => {
+    if (tooMany(req.ip || req.socket.remoteAddress || "unknown")) {
+        return res.status(429).json({ error: "too_many" });
+    }
+    const row = bookingByToken(req.query.token);
+    if (!row) {
+        return res.status(404).json({ error: "not_found" });
+    }
+    res.json({ ok: true, booking: publicBooking(row) });
+});
+
+app.post("/api/bookings/cancel", (req, res) => {
+    if (tooMany(req.ip || req.socket.remoteAddress || "unknown")) {
+        return res.status(429).json({ error: "too_many" });
+    }
+    const row = bookingByToken(req.body && req.body.token);
+    if (!row) {
+        return res.status(404).json({ error: "not_found" });
+    }
+    const check = customerCancelCheck(row);
+    if (check.error) {
+        return res.status(check.error === "too_late" ? 403 : 409).json({ error: check.error });
+    }
+    db.prepare("UPDATE bookings SET status = 'cancelled' WHERE id = ? AND status IN ('pending', 'confirmed')").run(row.id);
+    const updated = decorateBooking(db.prepare(`
+        SELECT b.*, br.name AS barber_name
+        FROM bookings b
+        JOIN barbers br ON br.id = b.barber_id
+        WHERE b.id = ?
+    `).get(row.id));
+    notify(row.barber_id, { type: "booking_cancelled", booking: updated });
+    push.send(row.barber_id, "StreetMan Barber Phuket — ลูกค้ายกเลิกคิว", `${row.customer_name} · ${row.date} ${row.time}`);
+    res.json({ ok: true, booking: publicBooking(Object.assign({}, row, { status: "cancelled" })) });
 });
 
 app.post("/api/login", (req, res) => {
@@ -518,11 +792,15 @@ app.post("/api/login", (req, res) => {
         Date.now() + SESSION_MS
     );
     res.cookie(COOKIE, token, cookieOptions(req));
-    res.json({ ok: true, barber: { id: barber.id, name: barber.name, username: barber.username, role: barber.role || "barber" } });
+    res.json({
+        ok: true,
+        token: token,
+        barber: { id: barber.id, name: barber.name, username: barber.username, role: barber.role || "barber", token: token }
+    });
 });
 
 app.post("/api/logout", (req, res) => {
-    const token = req.cookies[COOKIE];
+    const token = sessionToken(req);
     if (token) {
         db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
     }
@@ -536,7 +814,8 @@ app.get("/api/me", requireBarber, (req, res) => {
             id: req.barber.barber_id,
             name: req.barber.name,
             username: req.barber.username,
-            role: req.barber.role || "barber"
+            role: req.barber.role || "barber",
+            token: req.barber.token
         }
     });
 });
@@ -577,6 +856,7 @@ app.get("/api/barber/dashboard", requireBarber, (req, res) => {
         cancelled: bookings.filter((row) => row.status === "cancelled").length
     };
     stats.remaining = stats.pending + stats.confirmed;
+    stats.heads = bookings.filter((row) => row.status !== "cancelled").length;
 
     const active = bookings.filter((row) => row.status === "pending" || row.status === "confirmed");
     let next = null;
@@ -615,9 +895,26 @@ app.get("/api/barber/dashboard", requireBarber, (req, res) => {
         bookings,
         upcoming,
         summary: periodSummary(barberId, date),
-        shop: req.barber.role === "owner" ? shopSummary(date) : null
+        shop: req.barber.role === "owner" ? shopSummary(date) : null,
+        shop_status: shopState()
     });
 });
+
+function updateShop(req, res) {
+    if (req.body.closed == null) {
+        return res.status(400).json({ error: "bad_update" });
+    }
+    const closed = req.body.closed === true || req.body.closed === 1 || req.body.closed === "1";
+    const note = req.body.note != null ? req.body.note : null;
+    try {
+        return res.json({ ok: true, shop: setShopState(closed, note) });
+    } catch (err) {
+        return res.status(500).json({ error: "shop_update_failed" });
+    }
+}
+
+app.patch("/api/owner/shop", requireBarber, requireOwner, updateShop);
+app.post("/api/owner/shop", requireBarber, requireOwner, updateShop);
 
 app.patch("/api/barber/bookings/:id", requireBarber, (req, res) => {
     const id = Number(req.params.id);
@@ -644,6 +941,10 @@ app.patch("/api/barber/bookings/:id", requireBarber, (req, res) => {
         }
         if (req.body.remove_extra) {
             extras = extras.filter((item) => item !== String(req.body.remove_extra));
+        }
+        const place = canPlace(existing.barber_id, existing.date, existing.time, existing.service, extras, existing.id);
+        if (place.error) {
+            return res.status(409).json({ error: place.error });
         }
         db.prepare("UPDATE bookings SET extras = ? WHERE id = ?").run(JSON.stringify(extras), id);
     }
@@ -768,12 +1069,22 @@ app.use((req, res) => {
     res.status(404).sendFile(path.join(__dirname, "..", "404.html"));
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
     console.log(`StreetMan Barber Phuket running at http://localhost:${PORT}`);
     console.log("Data directory:", ensureDataDir());
     console.log("Customer booking: /book.html");
     console.log("Barber login: /barber/login.html");
     console.log("Barber dashboard: /barber/dashboard.html");
+    try {
+        Object.values(os.networkInterfaces()).forEach((list) => {
+            (list || []).forEach((net) => {
+                if (net.family === "IPv4" && !net.internal) {
+                    console.log(`Phone on same Wi-Fi: http://${net.address}:${PORT}`);
+                    console.log(`Book on phone: http://${net.address}:${PORT}/book.html`);
+                }
+            });
+        });
+    } catch (err) {}
     setTimeout(sendDayReminders, 8000);
     setInterval(sendDayReminders, 60 * 1000);
 });

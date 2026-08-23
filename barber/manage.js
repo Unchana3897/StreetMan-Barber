@@ -95,12 +95,39 @@
         }
     }
 
+    async function loadShop() {
+        if (!window.StreetManStore.getShop) {
+            return;
+        }
+        var shop = await window.StreetManStore.getShop();
+        var copy = document.getElementById("shop-status-copy");
+        var btn = document.getElementById("shop-close-btn");
+        copy.textContent = shop.closed
+            ? "ร้านปิดรับจองออนไลน์อยู่ ลูกค้าจองคิวใหม่ไม่ได้"
+            : "ร้านเปิดรับจองออนไลน์อยู่";
+        btn.textContent = shop.closed ? "เปิดรับจอง" : "ปิดร้าน";
+        btn.className = shop.closed ? "btn btn-primary" : "btn btn-outline-light";
+        btn.onclick = async function () {
+            if (!shop.closed && !window.confirm("ปิดร้านแล้วลูกค้าจะจองออนไลน์ไม่ได้ จนกว่าจะกดเปิดรับจอง")) {
+                return;
+            }
+            try {
+                await window.StreetManStore.setShop({ closed: !shop.closed });
+                showToast(shop.closed ? "เปิดรับจองแล้ว" : "ปิดร้านแล้ว");
+                loadShop();
+            } catch (err) {
+                showToast(errorText(err));
+            }
+        };
+    }
+
     async function load() {
         var rows = await window.StreetManStore.listStaff();
         listEl.innerHTML = "";
         rows.forEach(function (barber) {
             listEl.appendChild(rowHtml(barber));
         });
+        return loadShop();
     }
 
     document.getElementById("add-form").addEventListener("submit", async function (e) {

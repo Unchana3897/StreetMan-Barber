@@ -22,6 +22,12 @@ self.addEventListener("push", (event) => {
             body: data.body,
             icon: "../img/logo.PNG",
             badge: "../img/logo.PNG",
+            sound: "Guitar.mp3",
+            silent: false,
+            vibrate: [400, 120, 400, 120, 400, 180, 700],
+            requireInteraction: true,
+            tag: "streetman-queue",
+            renotify: true,
             data: { url: data.url || "dashboard.html" }
         })
     );

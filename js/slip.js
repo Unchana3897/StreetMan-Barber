@@ -3,6 +3,7 @@
 
     var lastCanvas = null;
     var lastCode = "SM";
+    var lastToken = "";
 
     function t(key) {
         return window.StreetMan ? window.StreetMan.t(key) : key;
@@ -10,6 +11,10 @@
 
     function lang() {
         return window.StreetMan ? window.StreetMan.detectLang() : "th";
+    }
+
+    function formatToken(token) {
+        return String(token || "").toLowerCase().replace(/[^a-f0-9]/g, "").replace(/(.{4})/g, "$1-").replace(/-$/, "");
     }
 
     function pad(value, size) {
@@ -73,11 +78,45 @@
         return y + 88;
     }
 
-    function drawSlip(booking) {
+    function cancelPayload(token) {
+        return "streetman-cancel:" + String(token || "").toLowerCase().replace(/[^a-f0-9]/g, "");
+    }
+
+    function loadImage(src) {
+        return new Promise(function (resolve) {
+            var image = new Image();
+            image.onload = function () {
+                resolve(image);
+            };
+            image.onerror = function () {
+                resolve(null);
+            };
+            image.src = src;
+        });
+    }
+
+    function makeQr(text) {
+        return new Promise(function (resolve) {
+            if (!text || !window.QRCode || !window.QRCode.toDataURL) {
+                resolve(null);
+                return;
+            }
+            window.QRCode.toDataURL(text, {
+                width: 220,
+                margin: 1,
+                errorCorrectionLevel: "M",
+                color: { dark: "#000000", light: "#ffffff" }
+            }, function (err, url) {
+                resolve(err ? null : url);
+            });
+        });
+    }
+
+    async function drawSlip(booking) {
         var canvas = document.createElement("canvas");
         var scale = 2;
         var width = 720;
-        var height = 1180;
+        var height = 1480;
         canvas.width = width * scale;
         canvas.height = height * scale;
         var ctx = canvas.getContext("2d");
@@ -95,6 +134,7 @@
         ctx.font = "700 48px Oswald, 'Noto Sans Thai', sans-serif";
         ctx.fillText(t("slip_title"), 64, 128);
 
+        lastToken = booking.cancel_token || "";
         lastCode = slipCode(booking);
         ctx.fillStyle = "#EB1616";
         ctx.font = "600 32px Oswald, sans-serif";
@@ -114,9 +154,27 @@
         y = row(ctx, t("label_phone"), booking.phone || "-", y, width);
         y = row(ctx, t("label_service"), t("svc_" + booking.service) || booking.service, y, width);
         y = row(ctx, t("label_barber"), barberName, y, width);
-        y = row(ctx, t("slip_when"), formatDate(booking.date) + "  ·  " + (booking.time || "-"), y, width);
+        var when = formatDate(booking.date) + "  ·  " + (booking.time || "-");
+        if (booking.time && booking.end_time) {
+            when = formatDate(booking.date) + "  ·  " + booking.time + "–" + booking.end_time;
+        }
+        y = row(ctx, t("slip_when"), when, y, width);
         if (booking.note) {
             y = row(ctx, t("label_note"), booking.note, y, width);
+        }
+        if (booking.cancel_token) {
+            y = row(ctx, t("slip_cancel_code"), formatToken(booking.cancel_token), y, width);
+            var qrUrl = await makeQr(cancelPayload(booking.cancel_token));
+            var qrImage = qrUrl ? await loadImage(qrUrl) : null;
+            if (qrImage) {
+                ctx.fillStyle = "#FFFFFF";
+                ctx.fillRect(width - 236, y, 172, 172);
+                ctx.drawImage(qrImage, width - 228, y + 8, 156, 156);
+                ctx.fillStyle = "#8A8FA8";
+                ctx.font = "20px 'Noto Sans Thai', sans-serif";
+                ctx.fillText(t("cancel_upload"), 64, y + 40);
+                y += 188;
+            }
         }
 
         ctx.fillStyle = "#191C24";
@@ -134,12 +192,12 @@
         return canvas;
     }
 
-    function paintSlip(booking) {
+    async function paintSlip(booking) {
         var img = document.getElementById("slip-image");
         if (!img) {
             return;
         }
-        var canvas = drawSlip(booking);
+        var canvas = await drawSlip(booking);
         img.src = canvas.toDataURL("image/png");
     }
 
@@ -150,6 +208,12 @@
             return;
         }
         paintSlip(booking);
+        var cancel = document.getElementById("slip-cancel");
+        if (cancel) {
+            cancel.href = booking.cancel_token
+                ? "cancel.html?t=" + encodeURIComponent(booking.cancel_token)
+                : "cancel.html";
+        }
         if (form) {
             form.classList.add("d-none");
         }
@@ -212,6 +276,9 @@
     window.StreetManSlip = {
         show: showSlip,
         hide: hideSlip,
-        save: saveSlip
+        save: saveSlip,
+        token: function () {
+            return lastToken;
+        }
     };
 })(window);

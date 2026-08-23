@@ -4,6 +4,7 @@
     var SESSION_KEY = "sm_barber_session";
     var QUEUE_KEY = "sm_barber_queue";
     var STAFF_KEY = "sm_staff";
+    var SHOP_KEY = "sm_shop";
     var PEER_PREFIX = "streetman-phuket-";
     var DEFAULT_PASSWORD = "StreetMan2026";
     var BARBERS = [
@@ -20,6 +21,15 @@
         mustache: "19:30",
         stacking: "18:30"
     };
+    var SLOT_COUNT = {
+        haircut: 2,
+        beard: 1,
+        shave: 1,
+        dye: 1,
+        mustache: 1,
+        stacking: 3
+    };
+    var SLOT_MINUTES = 30;
     var PRICES = {
         haircut: 300,
         beard: 200,
@@ -58,6 +68,31 @@
             date: parts.year + "-" + parts.month + "-" + parts.day,
             time: parts.hour + ":" + parts.minute
         };
+    }
+
+    function phoneKey(phone) {
+        var digits = String(phone || "").replace(/\D/g, "");
+        if (digits.indexOf("66") === 0 && digits.length >= 11) {
+            digits = "0" + digits.slice(2);
+        }
+        return digits;
+    }
+
+    function findOpenBooking(phone) {
+        var key = phoneKey(phone);
+        if (!key) {
+            return null;
+        }
+        var now = bangkokNow();
+        return readQueue().filter(function (row) {
+            if (row.status === "cancelled" || row.status === "done") {
+                return false;
+            }
+            if (phoneKey(row.phone) !== key) {
+                return false;
+            }
+            return row.date > now.date || (row.date === now.date && row.time >= now.time);
+        })[0] || null;
     }
 
     function addDays(iso, n) {
@@ -107,6 +142,26 @@
         window.localStorage.setItem(STAFF_KEY, JSON.stringify(rows));
     }
 
+    function readShop() {
+        try {
+            var data = JSON.parse(window.localStorage.getItem(SHOP_KEY) || "{}");
+            return {
+                closed: Boolean(data && data.closed),
+                note: (data && data.note) || ""
+            };
+        } catch (err) {
+            return { closed: false, note: "" };
+        }
+    }
+
+    function writeShop(state) {
+        window.localStorage.setItem(SHOP_KEY, JSON.stringify({
+            closed: Boolean(state && state.closed),
+            note: (state && state.note) || ""
+        }));
+        return readShop();
+    }
+
     function activeStaff() {
         return readStaff().filter(function (row) {
             return row.active !== false;
@@ -125,6 +180,67 @@
         });
     }
 
+    function serviceSlots(service) {
+        return SLOT_COUNT[service] || 1;
+    }
+
+    function extrasSlotCount(extras) {
+        return (extras || []).reduce(function (sum, item) {
+            return sum + serviceSlots(item);
+        }, 0);
+    }
+
+    function occupyRange(start, count, clamp) {
+        var index = TIME_SLOTS.indexOf(start);
+        if (index < 0 || count < 1) {
+            return null;
+        }
+        if (index + count > TIME_SLOTS.length) {
+            return clamp ? TIME_SLOTS.slice(index) : null;
+        }
+        return TIME_SLOTS.slice(index, index + count);
+    }
+
+    function slotEnd(start, count) {
+        var bits = String(start || "00:00").split(":").map(Number);
+        var total = bits[0] * 60 + bits[1] + count * SLOT_MINUTES;
+        return String(Math.floor(total / 60)).padStart(2, "0") + ":" + String(total % 60).padStart(2, "0");
+    }
+
+    function dayRows(barberId, date) {
+        return readQueue().filter(function (row) {
+            return row.barber_id === barberId && row.date === date && row.status !== "cancelled";
+        });
+    }
+
+    function occupiedSet(barberId, date, exceptId) {
+        var taken = {};
+        dayRows(barberId, date).forEach(function (row) {
+            if (exceptId && row.id === exceptId) {
+                return;
+            }
+            var extras = extrasList(row);
+            var range = occupyRange(row.time, serviceSlots(row.service) + extrasSlotCount(extras), true);
+            (range || [row.time]).forEach(function (slot) {
+                taken[slot] = true;
+            });
+        });
+        return taken;
+    }
+
+    function canPlace(barberId, date, time, service, extras, exceptId) {
+        var count = serviceSlots(service) + extrasSlotCount(extras);
+        var range = occupyRange(time, count, Boolean(exceptId));
+        if (!range) {
+            return { error: "bad_time" };
+        }
+        var occupied = occupiedSet(barberId, date, exceptId);
+        if (range.some(function (slot) { return occupied[slot]; })) {
+            return { error: exceptId ? "extra_overlap" : "slot_taken" };
+        }
+        return { ok: true, range: range, count: count };
+    }
+
     function bookingAmount(row) {
         var total = PRICES[row.service] || 0;
         extrasList(row).forEach(function (item) {
@@ -139,10 +255,13 @@
         extras.forEach(function (item) {
             extraTotal += PRICES[item] || 0;
         });
+        var slots = serviceSlots(row.service) + extrasSlotCount(extras);
         return Object.assign({}, row, {
             extras: extras,
             extra_total: extraTotal,
-            amount: (PRICES[row.service] || 0) + extraTotal
+            amount: (PRICES[row.service] || 0) + extraTotal,
+            slots: slots,
+            end_time: slotEnd(row.time, slots)
         });
     }
 
@@ -248,6 +367,15 @@
         window.sessionStorage.removeItem(SESSION_KEY);
     }
 
+    function authHeaders(extra) {
+        var headers = Object.assign({}, extra || {});
+        var session = getSession();
+        if (session && session.token) {
+            headers["X-Session-Token"] = session.token;
+        }
+        return headers;
+    }
+
     async function usingNode() {
         if (onGitHubPages()) {
             nodeMode = false;
@@ -267,7 +395,10 @@
     }
 
     async function nodeFetch(url, options) {
-        var res = await fetch(url, Object.assign({ credentials: "same-origin" }, options || {}));
+        options = options || {};
+        var next = Object.assign({ credentials: "same-origin" }, options);
+        next.headers = authHeaders(options.headers);
+        var res = await fetch(url, next);
         var data = {};
         try {
             data = await res.json();
@@ -288,20 +419,13 @@
 
     function slotsFor(service) {
         var last = LAST_SLOT[service] || "19:00";
+        var count = serviceSlots(service);
         return TIME_SLOTS.filter(function (slot) {
-            return slot <= last;
+            return slot <= last && occupyRange(slot, count, false);
         });
     }
 
-    function takenSlots(barberId, date) {
-        return readQueue().filter(function (row) {
-            return row.barber_id === barberId && row.date === date && row.status !== "cancelled";
-        }).map(function (row) {
-            return row.time;
-        });
-    }
-
-    function pickBarber(barberId, date, time) {
+    function pickBarber(barberId, date, time, service) {
         var ids = activeStaff().map(function (barber) {
             return barber.id;
         });
@@ -309,17 +433,18 @@
             if (ids.indexOf(barberId) === -1) {
                 return { error: "slot_taken" };
             }
-            if (takenSlots(barberId, date).indexOf(time) !== -1) {
-                return { error: "slot_taken" };
+            var chosen = canPlace(barberId, date, time, service, []);
+            if (chosen.error) {
+                return { error: chosen.error };
             }
             return { barberId: barberId };
         }
         for (var i = 0; i < ids.length; i += 1) {
-            if (takenSlots(ids[i], date).indexOf(time) === -1) {
+            if (!canPlace(ids[i], date, time, service, []).error) {
                 return { barberId: ids[i] };
             }
         }
-        return { error: "shop_full" };
+        return { error: "slot_taken" };
     }
 
     function buildDashboard(barber, date) {
@@ -337,6 +462,7 @@
             cancelled: bookings.filter(function (row) { return row.status === "cancelled"; }).length
         };
         stats.remaining = stats.pending + stats.confirmed;
+        stats.heads = bookings.filter(function (row) { return row.status !== "cancelled"; }).length;
         var active = bookings.filter(function (row) {
             return row.status === "pending" || row.status === "confirmed";
         });
@@ -371,7 +497,8 @@
             bookings: bookings,
             upcoming: upcoming,
             summary: periodSummary(barber.id, date),
-            shop: (barber.role === "owner" || barber.id === "rim") ? shopSummary(date) : null
+            shop: (barber.role === "owner" || barber.id === "rim") ? shopSummary(date) : null,
+            shop_status: readShop()
         };
     }
 
@@ -455,6 +582,8 @@
             return getSession();
         },
         logout: async function () {
+            var session = getSession();
+            var token = session && session.token;
             clearSession();
             if (livePeer) {
                 try { livePeer.destroy(); } catch (err) {}
@@ -462,7 +591,11 @@
             }
             if (await usingNode()) {
                 try {
-                    await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
+                    var headers = {};
+                    if (token) {
+                        headers["X-Session-Token"] = token;
+                    }
+                    await fetch("/api/logout", { method: "POST", credentials: "same-origin", headers: headers });
                 } catch (err) {}
             }
         },
@@ -532,6 +665,13 @@
                         return item !== String(payload.remove_extra);
                     });
                 }
+                var place = canPlace(row.barber_id, row.date, row.time, row.service, extras, row.id);
+                if (place.error) {
+                    var overlap = new Error(place.error);
+                    overlap.status = 409;
+                    overlap.body = { error: place.error };
+                    throw overlap;
+                }
                 row.extras = extras;
                 updated = decorateBooking(row);
                 return updated;
@@ -539,26 +679,73 @@
             writeQueue(rows);
             return { ok: true, booking: updated };
         },
+        getShop: async function () {
+            if (await usingNode()) {
+                return nodeFetch("/api/shop");
+            }
+            return readShop();
+        },
+        setShop: async function (payload) {
+            if (await usingNode()) {
+                try {
+                    var data = await nodeFetch("/api/owner/shop", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload)
+                    });
+                    return data.shop || data;
+                } catch (err) {
+                    if (err && err.status === 404) {
+                        var dataPost = await nodeFetch("/api/owner/shop", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(payload)
+                        });
+                        return dataPost.shop || dataPost;
+                    }
+                    throw err;
+                }
+            }
+            var me = await Store.me();
+            if (me.role !== "owner" && me.id !== "rim") {
+                var denied = new Error("owner_required");
+                denied.status = 403;
+                throw denied;
+            }
+            return writeShop({
+                closed: payload.closed,
+                note: payload.note
+            });
+        },
         availableSlots: async function (service, date, barber) {
             if (await usingNode()) {
                 var data = await nodeFetch("/api/slots?service=" + encodeURIComponent(service) + "&date=" + encodeURIComponent(date) + "&barber=" + encodeURIComponent(barber || "any"));
-                return data.slots || [];
+                return {
+                    slots: data.slots || [],
+                    closed: Boolean(data.closed),
+                    note: data.note || ""
+                };
+            }
+            if (readShop().closed) {
+                return { slots: [], closed: true, note: readShop().note };
             }
             var possible = Store.slots(service, date);
+            var slots;
             if (barber && barber !== "any") {
-                var taken = takenSlots(barber, date);
-                return possible.filter(function (slot) {
-                    return taken.indexOf(slot) === -1;
+                slots = possible.filter(function (slot) {
+                    return !canPlace(barber, date, slot, service, []).error;
+                });
+            } else {
+                var ids = activeStaff().map(function (row) {
+                    return row.id;
+                });
+                slots = possible.filter(function (slot) {
+                    return ids.some(function (id) {
+                        return !canPlace(id, date, slot, service, []).error;
+                    });
                 });
             }
-            var ids = activeStaff().map(function (row) {
-                return row.id;
-            });
-            return possible.filter(function (slot) {
-                return ids.some(function (id) {
-                    return takenSlots(id, date).indexOf(slot) === -1;
-                });
-            });
+            return { slots: slots, closed: false, note: "" };
         },
         createBooking: async function (payload) {
             if (await usingNode()) {
@@ -568,7 +755,23 @@
                     body: JSON.stringify(payload)
                 });
             }
-            var chosen = pickBarber(payload.barber, payload.date, payload.time);
+            if (readShop().closed) {
+                var closed = new Error("shop_closed");
+                closed.status = 403;
+                closed.body = { error: "shop_closed" };
+                throw closed;
+            }
+            var existing = findOpenBooking(payload.phone);
+            if (existing) {
+                var again = new Error("already_booked");
+                again.status = 409;
+                again.body = {
+                    error: "already_booked",
+                    booking: { date: existing.date, time: existing.time, service: existing.service }
+                };
+                throw again;
+            }
+            var chosen = pickBarber(payload.barber, payload.date, payload.time, payload.service);
             if (chosen.error) {
                 var taken = new Error(chosen.error);
                 taken.status = 409;
@@ -576,7 +779,7 @@
             }
             var barber = BARBERS.filter(function (row) { return row.id === chosen.barberId; })[0]
                 || activeStaff().filter(function (row) { return row.id === chosen.barberId; })[0];
-            var booking = {
+            var booking = decorateBooking({
                 id: Date.now(),
                 customer_name: payload.customer_name,
                 phone: payload.phone,
@@ -586,12 +789,13 @@
                 date: payload.date,
                 time: payload.time,
                 note: payload.note || null,
+                cancel_token: Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2),
                 extras: [],
                 extra_total: 0,
                 amount: PRICES[payload.service] || 0,
                 status: "pending",
                 created_at: new Date().toISOString()
-            };
+            });
             var delivered = false;
             try {
                 delivered = await sendPeer(chosen.barberId, booking);
@@ -697,18 +901,90 @@
             writeStaff(rows);
             return { ok: true, barber: found };
         },
+        lookupBooking: async function (token) {
+            token = String(token || "").trim().toLowerCase().replace(/[^a-f0-9]/g, "");
+            if (await usingNode()) {
+                return nodeFetch("/api/bookings/lookup?token=" + encodeURIComponent(token));
+            }
+            var row = readQueue().filter(function (item) {
+                return String(item.cancel_token || "").toLowerCase() === token;
+            })[0];
+            if (!row) {
+                var missing = new Error("not_found");
+                missing.status = 404;
+                missing.body = { error: "not_found" };
+                throw missing;
+            }
+            return { ok: true, booking: decorateBooking(row) };
+        },
+        cancelBooking: async function (token) {
+            token = String(token || "").trim().toLowerCase().replace(/[^a-f0-9]/g, "");
+            if (await usingNode()) {
+                return nodeFetch("/api/bookings/cancel", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: token })
+                });
+            }
+            var updated = null;
+            var rows = readQueue().map(function (row) {
+                if (String(row.cancel_token || "").toLowerCase() !== token) {
+                    return row;
+                }
+                if (row.status === "cancelled" || row.status === "done") {
+                    var late = new Error(row.status === "done" ? "already_done" : "already_cancelled");
+                    late.status = 409;
+                    late.body = { error: late.message };
+                    throw late;
+                }
+                var now = bangkokNow();
+                var slot = new Date(row.date + "T" + row.time + ":00+07:00").getTime();
+                var current = new Date(now.date + "T" + now.time + ":00+07:00").getTime();
+                if ((slot - current) / 3600000 < 2) {
+                    var tooLate = new Error("too_late");
+                    tooLate.status = 403;
+                    tooLate.body = { error: "too_late" };
+                    throw tooLate;
+                }
+                row.status = "cancelled";
+                updated = decorateBooking(row);
+                return updated;
+            });
+            if (!updated) {
+                var missing = new Error("not_found");
+                missing.status = 404;
+                missing.body = { error: "not_found" };
+                throw missing;
+            }
+            writeQueue(rows);
+            return { ok: true, booking: updated };
+        },
         listen: function (onBooking, onReminder) {
             usingNode().then(function (ok) {
                 if (ok) {
                     if (!window.EventSource) {
                         return;
                     }
-                    var source = new EventSource("/api/barber/events");
+                    var liveSession = getSession();
+                    var eventsUrl = "/api/barber/events";
+                    if (liveSession && liveSession.token) {
+                        eventsUrl += "?token=" + encodeURIComponent(liveSession.token);
+                    }
+                    var source = new EventSource(eventsUrl);
                     source.onmessage = function (event) {
                         try {
                             var payload = JSON.parse(event.data);
                             if (payload.type === "new_booking") {
                                 onBooking(payload.booking);
+                            }
+                            if (payload.type === "booking_cancelled" && onReminder) {
+                                onReminder({
+                                    type: "booking_cancelled",
+                                    title: "ลูกค้ายกเลิกคิว",
+                                    message: payload.booking
+                                        ? payload.booking.customer_name + " · " + payload.booking.time
+                                        : "มีลูกค้ายกเลิกคิว"
+                                });
                             }
                             if (payload.type === "day_reminder" && onReminder) {
                                 onReminder(payload);

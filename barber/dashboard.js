@@ -130,7 +130,7 @@
             hint.classList.remove("d-none");
             return;
         }
-        hint.textContent = "กดเปิดแจ้งเตือนมือถือหนึ่งครั้ง เครื่องนี้จะได้รับคิวใหม่แม้ปิดหน้าเว็บไว้";
+        hint.textContent = "กดเปิดแจ้งเตือนมือถือหนึ่งครั้ง แล้วอย่าปิดเสียงเครื่อง จะดังและสั่นแม้ปิดจอ";
         hint.classList.remove("d-none");
     }
 
@@ -212,20 +212,89 @@
             body: JSON.stringify(sub)
         });
         setNotifyBtn("แจ้งเตือนมือถือเปิดแล้ว", false);
-        showToast("เปิดแจ้งเตือนมือถือแล้ว คิวใหม่จะขึ้นแม้ปิดหน้านี้ไว้");
+        unlockAlert();
+        showToast("เปิดแจ้งเตือนมือถือแล้ว คิวใหม่จะดังและสั่นแม้ปิดจอ");
+    }
+
+    var alertAudio = null;
+
+    function unlockAlert() {
+        try {
+            if (!alertAudio) {
+                alertAudio = new Audio("Guitar.mp3");
+                alertAudio.preload = "auto";
+            }
+            alertAudio.volume = 0;
+            var play = alertAudio.play();
+            if (play && play.then) {
+                play.then(function () {
+                    alertAudio.pause();
+                    alertAudio.currentTime = 0;
+                    alertAudio.volume = 1;
+                }).catch(function () {
+                    alertAudio.volume = 1;
+                });
+            } else {
+                alertAudio.pause();
+                alertAudio.volume = 1;
+            }
+        } catch (err) {}
+    }
+
+    function buzz() {
+        try {
+            if (navigator.vibrate) {
+                navigator.vibrate([400, 120, 400, 120, 400, 180, 700]);
+            }
+        } catch (err) {}
     }
 
     function beep() {
+        buzz();
         try {
-            var ctx = new (window.AudioContext || window.webkitAudioContext)();
-            var osc = ctx.createOscillator();
-            var gain = ctx.createGain();
-            osc.frequency.value = 880;
-            gain.gain.value = 0.05;
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.18);
+            if (!alertAudio) {
+                alertAudio = new Audio("Guitar.mp3");
+            }
+            alertAudio.volume = 1;
+            alertAudio.currentTime = 0;
+            var play = alertAudio.play();
+            if (play && play.catch) {
+                play.catch(function () {
+                    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    if (ctx.resume) {
+                        ctx.resume();
+                    }
+                    [0, 0.22, 0.44, 0.66].forEach(function (at, index) {
+                        var osc = ctx.createOscillator();
+                        var gain = ctx.createGain();
+                        osc.type = "square";
+                        osc.frequency.value = index % 2 ? 1320 : 880;
+                        gain.gain.value = 0.28;
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(ctx.currentTime + at);
+                        osc.stop(ctx.currentTime + at + 0.18);
+                    });
+                });
+            }
+        } catch (err) {}
+    }
+
+    function queueNotice(title, body) {
+        beep();
+        if (!window.Notification || Notification.permission !== "granted") {
+            return;
+        }
+        try {
+            new Notification(title, {
+                body: body,
+                icon: "../img/logo.PNG",
+                silent: false,
+                vibrate: [400, 120, 400, 120, 400, 180, 700],
+                requireInteraction: true,
+                tag: "streetman-queue",
+                renotify: true
+            });
         } catch (err) {}
     }
 
@@ -251,7 +320,13 @@
                 throw new Error("pages");
             }
         }
-        var res = await fetch(url, Object.assign({ credentials: "same-origin" }, options || {}));
+        options = options || {};
+        var headers = Object.assign({}, options.headers || {});
+        var session = window.StreetManStore && window.StreetManStore.getSession && window.StreetManStore.getSession();
+        if (session && session.token) {
+            headers["X-Session-Token"] = session.token;
+        }
+        var res = await fetch(url, Object.assign({ credentials: "same-origin" }, options, { headers: headers }));
         if (res.status === 401) {
             window.location.href = "login.html";
             throw new Error("login");
@@ -347,12 +422,19 @@
         });
     }
 
+    function timeRange(row) {
+        return row && row.end_time ? row.time + "–" + row.end_time : (row && row.time) || "";
+    }
+
     function renderStats(stats) {
         stats = stats || {};
+        var heads = stats.heads != null
+            ? stats.heads
+            : (stats.pending || 0) + (stats.confirmed || 0) + (stats.done || 0);
         document.getElementById("stat-pending").textContent = stats.pending || 0;
         document.getElementById("stat-confirmed").textContent = stats.confirmed || 0;
         document.getElementById("stat-done").textContent = stats.done || 0;
-        document.getElementById("stat-total").textContent = stats.total || 0;
+        document.getElementById("stat-total").textContent = heads;
     }
 
     function renderWeek(upcoming, selected) {
@@ -404,7 +486,7 @@
             "<div class=\"queue-time\"></div>" +
             "<div><h2></h2><p class=\"queue-meta mb-2\"></p></div>" +
             "</div>";
-        nextEl.querySelector(".queue-time").textContent = booking.time;
+        nextEl.querySelector(".queue-time").textContent = timeRange(booking);
         nextEl.querySelector("h2").textContent = booking.customer_name;
         nextEl.querySelector(".queue-meta").textContent =
             (SERVICES[booking.service] || booking.service) +
@@ -443,7 +525,7 @@
                 '<span class="queue-status"></span>' +
                 "</div>" +
                 '<div class="queue-actions"></div>';
-            card.querySelector(".queue-time").textContent = row.time;
+            card.querySelector(".queue-time").textContent = timeRange(row);
             card.querySelector("strong").textContent = row.customer_name;
             card.querySelector(".queue-meta").textContent =
                 (SERVICES[row.service] || row.service) +
@@ -483,7 +565,7 @@
         wrap.appendChild(amount);
         var hint = document.createElement("p");
         hint.className = "queue-meta mb-2";
-        hint.textContent = "เพิ่มบริการตอนตัด";
+        hint.textContent = "เพิ่มบริการตอนตัด · ถ้าชนคิวถัดไป จะเพิ่มไม่ได้";
         wrap.appendChild(hint);
         SERVICE_ORDER.forEach(function (service) {
             if (service === row.service) {
@@ -520,17 +602,61 @@
         renderMine(data.summary);
         renderShop(data.shop, data.barber);
         renderWeek(data.upcoming, data.date);
+        renderShopStatus(data);
         renderNext(data.next);
         renderList(data.bookings || []);
     }
 
+    function renderShopStatus(data) {
+        var status = (data && data.shop_status) || {};
+        var banner = document.getElementById("shop-closed-banner");
+        var btn = document.getElementById("shop-close-btn");
+        var owner = isOwner(data && data.barber);
+        if (banner) {
+            banner.classList.toggle("d-none", !status.closed);
+        }
+        if (!btn) {
+            return;
+        }
+        btn.className = (status.closed ? "btn btn-primary" : "btn btn-outline-light") + (owner ? "" : " d-none");
+        btn.textContent = status.closed ? "เปิดรับจอง" : "ปิดร้าน";
+    }
+
+    async function toggleShop() {
+        var closed = Boolean(latest.shop_status && latest.shop_status.closed);
+        if (!closed && !window.confirm("ปิดร้านแล้วลูกค้าจะจองออนไลน์ไม่ได้ จนกว่าจะกดเปิดรับจอง")) {
+            return;
+        }
+        try {
+            await window.StreetManStore.setShop({ closed: !closed });
+            showToast(closed ? "เปิดรับจองแล้ว" : "ปิดร้านแล้ว ลูกค้าจองออนไลน์ไม่ได้");
+            load();
+        } catch (err) {
+            var code = err && ((err.body && err.body.error) || err.message);
+            showToast(code === "login" || err && err.status === 401
+                ? "เซสชันหมด ลองออกแล้วเข้าใหม่"
+                : code === "owner_required"
+                    ? "ปิดร้านได้เฉพาะ Rim"
+                    : code === "not_found" || err && err.status === 404
+                        ? "เซิร์ฟเวอร์ยังเป็นเวอร์ชันเก่า ปิดแล้วรัน npm start ใหม่"
+                        : "เปลี่ยนสถานะร้านไม่สำเร็จ");
+        }
+    }
+
     async function updateExtras(id, payload) {
-        await api("/api/barber/bookings/" + id, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-        load();
+        try {
+            await api("/api/barber/bookings/" + id, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            load();
+        } catch (err) {
+            var code = err && ((err.body && err.body.error) || err.message);
+            showToast(code === "extra_overlap"
+                ? "เพิ่มไม่ได้ คิวนี้จะชนกับคิวถัดไป"
+                : "อัปเดตบริการไม่สำเร็จ");
+        }
     }
 
     async function updateStatus(id, status) {
@@ -549,12 +675,7 @@
 
     function onDayReminder(payload) {
         showToast(payload.message || "มีคิววันนี้");
-        beep();
-        if (window.Notification && Notification.permission === "granted") {
-            new Notification(payload.title || "คิววันนี้", {
-                body: payload.message || "เปิด Dashboard เพื่อดูคิววันนี้"
-            });
-        }
+        queueNotice(payload.title || "คิววันนี้", payload.message || "เปิด Dashboard เพื่อดูคิววันนี้");
         if (payload.date && dateEl.value !== payload.date) {
             dateEl.value = payload.date;
         }
@@ -570,12 +691,10 @@
         } else {
             showToast("คิวใหม่ " + booking.time + " · " + booking.customer_name);
         }
-        beep();
-        if (window.Notification && Notification.permission === "granted") {
-            new Notification("StreetMan Barber Phuket — คิวใหม่", {
-                body: booking.customer_name + " · " + booking.time + " · " + (SERVICES[booking.service] || booking.service)
-            });
-        }
+        queueNotice(
+            "StreetMan Barber Phuket — คิวใหม่",
+            booking.customer_name + " · " + booking.time + " · " + (SERVICES[booking.service] || booking.service)
+        );
         load();
     }
 
@@ -630,8 +749,12 @@
             window.location.href = "login.html";
         });
         document.getElementById("notify-btn").addEventListener("click", function () {
+            unlockAlert();
             enablePush();
         });
+        document.addEventListener("touchstart", unlockAlert, { once: true });
+        document.addEventListener("click", unlockAlert, { once: true });
+        document.getElementById("shop-close-btn").addEventListener("click", toggleShop);
 
         window.StreetManStore.listen(onNewBooking, onDayReminder);
 

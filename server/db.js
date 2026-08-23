@@ -72,5 +72,25 @@ if (!hasColumn("bookings", "extras")) {
 if (!hasColumn("bookings", "reminded_at")) {
     db.exec("ALTER TABLE bookings ADD COLUMN reminded_at TEXT");
 }
+if (!hasColumn("bookings", "cancel_token")) {
+    db.exec("ALTER TABLE bookings ADD COLUMN cancel_token TEXT");
+}
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_cancel_token ON bookings(cancel_token) WHERE cancel_token IS NOT NULL AND cancel_token != ''");
+
+const crypto = require("crypto");
+const missingTokens = db.prepare("SELECT id FROM bookings WHERE cancel_token IS NULL OR cancel_token = ''").all();
+const fillToken = db.prepare("UPDATE bookings SET cancel_token = ? WHERE id = ?");
+missingTokens.forEach((row) => {
+    fillToken.run(crypto.randomBytes(8).toString("hex"), row.id);
+});
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS shop_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+`);
+db.prepare("INSERT OR IGNORE INTO shop_settings (key, value) VALUES ('closed', '0')").run();
+db.prepare("INSERT OR IGNORE INTO shop_settings (key, value) VALUES ('closed_note', '')").run();
 
 module.exports = db;
