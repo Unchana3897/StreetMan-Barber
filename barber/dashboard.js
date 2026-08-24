@@ -318,7 +318,10 @@
 
     function queueNotice(title, body) {
         beep();
-        if (!window.Notification || Notification.permission !== "granted") {
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            return;
+        }
+        if (!window.Notification || Notification.permission !== "granted" || !document.hidden) {
             return;
         }
         try {

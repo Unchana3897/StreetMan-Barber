@@ -735,10 +735,12 @@ app.post("/api/bookings", (req, res) => {
         if (!picked || picked.error) {
             return { error: (picked && picked.error) || "slot_taken" };
         }
+        const now = bangkokNow();
+        const remindedAt = date === now.date && now.time >= "09:00" ? createdAt : null;
         const row = db.prepare(`
-            INSERT INTO bookings (customer_name, phone, service, barber_id, date, time, note, status, created_at, cancel_token)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
-        `).run(name, phone, service, picked.barberId, date, time, note || null, createdAt, makeCancelToken());
+            INSERT INTO bookings (customer_name, phone, service, barber_id, date, time, note, status, created_at, cancel_token, reminded_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+        `).run(name, phone, service, picked.barberId, date, time, note || null, createdAt, makeCancelToken(), remindedAt);
         return { picked, row };
     });
     try {

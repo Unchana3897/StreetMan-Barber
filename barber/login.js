@@ -42,14 +42,14 @@
             window.location.href = "dashboard.html";
         } catch (err) {
             if (err && (err.message === "bad_login" || err.status === 401)) {
-                showError("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูก ใช้ rim / bank / rick / dee และรหัส StreetMan2026");
+                showError("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูก");
                 return;
             }
             try {
                 localLogin(username, password);
                 window.location.href = "dashboard.html";
             } catch (fallbackErr) {
-                showError("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูก ใช้ rim / bank / rick / dee และรหัส StreetMan2026");
+                showError("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูก");
             }
         }
     });

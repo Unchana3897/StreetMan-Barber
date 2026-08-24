@@ -31,7 +31,7 @@ self.addEventListener("push", (event) => {
             silent: false,
             vibrate: [400, 120, 400, 120, 400, 180, 700],
             requireInteraction: true,
-            tag: "streetman-queue-" + Date.now(),
+            tag: "streetman-queue",
             renotify: true,
             data: { url: data.url || "dashboard.html" }
         })
