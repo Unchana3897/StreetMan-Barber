@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="utf-8">
+    <title>POS คิดเงิน | StreetMan Barber Phuket</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <meta name="theme-color" content="#C9A227">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="POS ร้าน">
+    <link rel="icon" href="../img/app-icon-pos-192.png">
+    <link rel="manifest" href="manifest-pos.json">
+    <link rel="apple-touch-icon" href="../img/app-icon-pos-180.png">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Oswald:wght@600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <link href="queue.css" rel="stylesheet">
+</head>
+<body class="staff-body queue-body dash-body pos-body">
+    <header class="queue-top">
+        <div>
+            <p class="staff-kicker mb-1">StreetMan Barber Phuket · POS</p>
+            <h1 id="barber-name">คิดเงิน</h1>
+            <p class="staff-copy mb-0" id="clock">กดคิวหรือวอล์กอิน แล้วรับเงินสดหรือโอน</p>
+        </div>
+        <div class="queue-top-actions">
+            <button type="button" class="btn btn-outline-light" id="refresh-btn">รีเฟรช</button>
+            <a href="dashboard.html" class="btn btn-outline-light">หน้าคิว</a>
+            <a href="income.html" class="btn btn-outline-light">รายได้</a>
+            <button type="button" class="btn btn-outline-light" id="logout-btn">ออกจากระบบ</button>
+        </div>
+    </header>
+    <div id="toast" class="queue-toast d-none"></div>
+    <main class="queue-wrap pos-wrap">
+        <section class="pos-col">
+            <div class="pos-col-head">
+                <h2>คิวที่ยังไม่คิดเงิน</h2>
+                <button type="button" class="btn btn-primary" id="walkin-btn">วอล์กอิน</button>
+            </div>
+            <p id="open-empty" class="staff-copy">ยังไม่มีคิวรอคิดเงิน</p>
+            <div id="open-list"></div>
+            <h2 class="pos-paid-title">คิดเงินแล้ววันนี้</h2>
+            <div id="paid-list"></div>
+        </section>
+        <section class="pos-col pos-checkout" id="checkout">
+            <p class="staff-copy mb-0">เลือกคิวซ้ายมือ หรือกดวอล์กอิน</p>
+        </section>
+    </main>
+    <div id="receipt" class="pos-receipt d-none"></div>
+    <script src="../js/store.js"></script>
+    <script src="pos.js"></script>
+</body>
+</html>

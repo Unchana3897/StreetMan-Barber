@@ -131,8 +131,14 @@
         ctx.font = "600 22px Oswald, 'Noto Sans Thai', sans-serif";
         ctx.fillText("STREETMAN BARBER PHUKET", 64, 72);
         ctx.fillStyle = "#FFFFFF";
-        ctx.font = "700 48px Oswald, 'Noto Sans Thai', sans-serif";
-        ctx.fillText(t("slip_title"), 64, 128);
+        var title = t("slip_title");
+        var titleSize = 48;
+        ctx.font = "700 " + titleSize + "px Oswald, 'Noto Sans Thai', sans-serif";
+        while (titleSize > 28 && ctx.measureText(title).width > width - 128) {
+            titleSize -= 2;
+            ctx.font = "700 " + titleSize + "px Oswald, 'Noto Sans Thai', sans-serif";
+        }
+        ctx.fillText(title, 64, 128);
 
         lastToken = booking.cancel_token || "";
         lastCode = slipCode(booking);

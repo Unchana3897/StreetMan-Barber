@@ -75,6 +75,12 @@ if (!hasColumn("bookings", "reminded_at")) {
 if (!hasColumn("bookings", "cancel_token")) {
     db.exec("ALTER TABLE bookings ADD COLUMN cancel_token TEXT");
 }
+if (!hasColumn("bookings", "payment_method")) {
+    db.exec("ALTER TABLE bookings ADD COLUMN payment_method TEXT");
+}
+if (!hasColumn("bookings", "paid_at")) {
+    db.exec("ALTER TABLE bookings ADD COLUMN paid_at TEXT");
+}
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_cancel_token ON bookings(cancel_token) WHERE cancel_token IS NOT NULL AND cancel_token != ''");
 
 const crypto = require("crypto");

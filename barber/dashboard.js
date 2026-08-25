@@ -564,9 +564,14 @@
         latest = data;
         document.getElementById("barber-name").textContent = "คิวของ " + data.barber.name;
         renderStats(data.stats);
+        var owner = isOwner(data.barber);
         var manage = document.getElementById("manage-link");
         if (manage) {
-            manage.classList.toggle("d-none", !isOwner(data.barber));
+            manage.classList.toggle("d-none", !owner);
+        }
+        var pos = document.getElementById("pos-link");
+        if (pos) {
+            pos.classList.toggle("d-none", !owner);
         }
         renderWeek(data.upcoming, data.date);
         renderShopStatus(data);

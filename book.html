@@ -86,7 +86,15 @@
   ]
 }
     </script>
-    <link rel="icon" href="img/logo.PNG">
+    <meta name="theme-color" content="#EB1616">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="จองคิว">
+    <link rel="icon" href="/favicon.ico" sizes="48x48">
+    <link rel="icon" type="image/png" sizes="48x48" href="/img/favicon-48.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="img/app-icon-book-192.png">
+    <link rel="manifest" href="manifest-book.json">
+    <link rel="apple-touch-icon" href="img/app-icon-book-180.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Roboto:wght@400;500&family=Oswald:wght@600&display=swap" rel="stylesheet">
@@ -156,7 +164,7 @@
                         <p id="book-host-note" class="mb-4 text-primary d-none"></p>
                         <p class="mb-4 text-primary" data-i18n="hours_hint">เปิด 11:00–20:00 · ตัดผมใช้เวลา 1 ชม. · Stacking 1 ชม. 30 นาที</p>
                         <p class="mb-4" data-i18n="book_once">เบอร์โทรหนึ่งเบอร์จองได้ 1 คิวที่ยังไม่ถึงเวลา ถ้าจองซ้ำต้องยกเลิกคิวเดิมก่อน</p>
-                        <p class="mb-4" data-i18n="slip_after">หลังกดยืนยัน จะมีสลิปเป็นรูปให้เซฟไว้ แล้วนำไปแสดงช่างเมื่อถึงร้าน</p>
+                        <p class="mb-4" data-i18n="slip_after">หลังกดยืนยัน จะมีใบจองคิวเป็นรูปให้เซฟไว้ แล้วนำไปแสดงช่างเมื่อถึงร้าน</p>
                         <form id="book-form">
                             <div class="row g-3">
                                 <div class="col-md-6">
@@ -230,12 +238,12 @@
                         </form>
                         <div id="slip-panel" class="slip-panel d-none">
                             <p class="text-primary mb-2" data-i18n="slip_done">จองสำเร็จแล้ว</p>
-                            <h2 class="h4 text-uppercase mb-3" data-i18n="slip_title">สลิปจองคิว</h2>
+                            <h2 class="h4 text-uppercase mb-3" data-i18n="slip_title">ใบจองคิว</h2>
                             <p class="mb-3" data-i18n="slip_hint">กดปุ่มด้านล่างเพื่อเซฟรูป หรือกดค้างที่รูปบนมือถือ</p>
-                            <img id="slip-image" alt="สลิปจองคิว StreetMan Barber Phuket">
+                            <img id="slip-image" alt="ใบจองคิว StreetMan Barber Phuket">
                             <button type="button" class="btn btn-primary w-100 py-3 mb-2" id="slip-save" data-i18n="slip_save">บันทึกรูปเพื่อแสดงช่าง</button>
                             <a class="btn btn-outline-light w-100 py-3 mb-2" id="slip-cancel" href="cancel.html" data-i18n="slip_cancel">ยกเลิกคิวนี้</a>
-                            <p class="mb-3" data-i18n="slip_cancel_hint">ยกเลิกได้เองถึง 2 ชั่วโมงก่อนถึงคิว ด้วยรหัสบนสลิป</p>
+                            <p class="mb-3" data-i18n="slip_cancel_hint">ยกเลิกได้เองถึง 2 ชั่วโมงก่อนถึงคิว ด้วยรหัสบนใบจองคิว</p>
                             <button type="button" class="btn btn-outline-light w-100 py-3" id="slip-new" data-i18n="slip_new">จองคิวอีกครั้ง</button>
                         </div>
                     </div>

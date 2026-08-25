@@ -1,0 +1,23 @@
+{
+  "name": "StreetMan Barber Phuket — จองคิว",
+  "short_name": "จองคิว",
+  "description": "จองคิวตัดผม StreetMan Barber ภูเก็ต",
+  "start_url": "book.html",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#EB1616",
+  "theme_color": "#EB1616",
+  "lang": "th",
+  "icons": [
+    {
+      "src": "img/app-icon-book-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "img/app-icon-book-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -28,26 +28,36 @@
         return barber;
     }
 
+    function goNext(barber) {
+        var next = window.sessionStorage.getItem("sm_after_login") || "dashboard.html";
+        window.sessionStorage.removeItem("sm_after_login");
+        var owner = barber && (barber.role === "owner" || barber.id === "rim" || barber.username === "rim");
+        if (!owner && String(next).indexOf("pos.html") !== -1) {
+            next = "dashboard.html";
+        }
+        window.location.href = next;
+    }
+
     form.addEventListener("submit", async function (e) {
         e.preventDefault();
         error.classList.add("d-none");
         var username = document.getElementById("username").value;
         var password = document.getElementById("password").value;
         try {
+            var barber;
             if (window.StreetManStore && window.StreetManStore.login) {
-                await window.StreetManStore.login(username, password);
+                barber = await window.StreetManStore.login(username, password);
             } else {
-                localLogin(username, password);
+                barber = localLogin(username, password);
             }
-            window.location.href = "dashboard.html";
+            goNext(barber);
         } catch (err) {
             if (err && (err.message === "bad_login" || err.status === 401)) {
                 showError("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูก");
                 return;
             }
             try {
-                localLogin(username, password);
-                window.location.href = "dashboard.html";
+                goNext(localLogin(username, password));
             } catch (fallbackErr) {
                 showError("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูก");
             }

@@ -314,7 +314,9 @@
             extra_total: extraTotal,
             amount: (PRICES[row.service] || 0) + extraTotal,
             slots: slots,
-            end_time: slotEnd(row.time, slots)
+            end_time: slotEnd(row.time, slots),
+            payment_method: row.payment_method || null,
+            paid_at: row.paid_at || null
         });
     }
 
@@ -755,13 +757,14 @@
             });
             var barberSheets = readStaff().map(function (barber) {
                 var rows = grouped[barber.id] || [];
-                var body = "<Row>" + cell("วันที่") + cell("เวลา") + cell("ลูกค้า") + cell("เบอร์") + cell("บริการ") + cell("ของเพิ่ม") + cell("ยอด (บาท)") + cell("หมายเหตุ") + "</Row>";
+                var body = "<Row>" + cell("วันที่") + cell("เวลา") + cell("ลูกค้า") + cell("เบอร์") + cell("บริการ") + cell("ของเพิ่ม") + cell("ยอด (บาท)") + cell("สถานะ") + "</Row>";
                 rows.forEach(function (row) {
+                    var walkin = row.note === "walk-in" || row.note === "Walk in" || row.phone === "walkin" || row.customer_name === "วอล์กอิน";
                     body += "<Row>" +
                         cell(row.date) + cell(row.time) +
-                        cell(row.customer_name) + cell(row.phone) + cell(labels[row.service] || row.service) +
+                        cell(walkin ? "Walk in" : row.customer_name) + cell(walkin ? "" : row.phone) + cell(labels[row.service] || row.service) +
                         cell((row.extras || []).map(function (item) { return labels[item] || item; }).join(", ")) +
-                        cell(row.amount, true) + cell(row.note || "") +
+                        cell(row.amount, true) + cell(walkin ? "Walk in" : (row.note || "")) +
                         "</Row>";
                 });
                 var revenue = rows.reduce(function (sum, row) { return sum + bookingAmount(row); }, 0);
@@ -872,6 +875,100 @@
             });
             writeQueue(rows);
             return { ok: true, booking: updated };
+        },
+        pos: async function (date) {
+            if (await usingNode()) {
+                return nodeFetch("/api/barber/pos?date=" + encodeURIComponent(date));
+            }
+            var me = await Store.me();
+            if (me.role !== "owner" && me.id !== "rim") {
+                var denied = new Error("owner_required");
+                denied.status = 403;
+                throw denied;
+            }
+            var rows = readQueue().filter(function (row) {
+                return row.date === date && row.status !== "cancelled";
+            }).map(decorateBooking).sort(function (a, b) {
+                return String(a.time).localeCompare(b.time);
+            });
+            return {
+                barber: me,
+                date: date,
+                barbers: readStaff(),
+                open: rows.filter(function (row) { return row.status === "pending" || row.status === "confirmed"; }),
+                paid: rows.filter(function (row) { return row.status === "done"; })
+            };
+        },
+        payBooking: async function (id, payload) {
+            if (await usingNode()) {
+                return nodeFetch("/api/barber/bookings/" + id + "/pay", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+            }
+            var me = await Store.me();
+            if (me.role !== "owner" && me.id !== "rim") {
+                var deniedPay = new Error("owner_required");
+                deniedPay.status = 403;
+                throw deniedPay;
+            }
+            var updated = null;
+            var rows = readQueue().map(function (row) {
+                if (row.id !== id) {
+                    return row;
+                }
+                var extras = extrasList(row);
+                if (Array.isArray(payload.extras)) {
+                    extras = payload.extras;
+                }
+                row.extras = extras;
+                row.status = "done";
+                row.payment_method = payload.method;
+                row.paid_at = new Date().toISOString();
+                updated = decorateBooking(row);
+                return updated;
+            });
+            if (!updated) {
+                var missing = new Error("not_found");
+                missing.status = 404;
+                throw missing;
+            }
+            writeQueue(rows);
+            return { ok: true, booking: updated };
+        },
+        walkinPay: async function (payload) {
+            if (await usingNode()) {
+                return nodeFetch("/api/barber/pos/walkin", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+            }
+            var me = await Store.me();
+            if (me.role !== "owner" && me.id !== "rim") {
+                var deniedWalkin = new Error("owner_required");
+                deniedWalkin.status = 403;
+                throw deniedWalkin;
+            }
+            var booking = {
+                id: Date.now(),
+                customer_name: payload.customer_name,
+                phone: payload.phone || "walkin",
+                service: payload.service,
+                extras: payload.extras || [],
+                barber_id: payload.barber_id || me.id,
+                date: bangkokNow().date,
+                time: bangkokNow().time,
+                note: "Walk in",
+                status: "done",
+                payment_method: payload.method,
+                paid_at: new Date().toISOString()
+            };
+            var rows = readQueue();
+            rows.push(booking);
+            writeQueue(rows);
+            return { ok: true, booking: decorateBooking(booking) };
         },
         getShop: async function () {
             if (await usingNode()) {

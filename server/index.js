@@ -267,6 +267,54 @@ function canPlace(barberId, date, time, service, extras, exceptId) {
     return { ok: true, range, count };
 }
 
+function floorSlot(time) {
+    const [hour, minute] = String(time || "11:00").split(":").map(Number);
+    const slot = `${String(hour).padStart(2, "0")}:${minute < 30 ? "00" : "30"}`;
+    if (TIME_SLOTS.includes(slot)) {
+        return slot;
+    }
+    if (time < TIME_SLOTS[0]) {
+        return TIME_SLOTS[0];
+    }
+    return TIME_SLOTS[TIME_SLOTS.length - 1];
+}
+
+function findWalkinSlot(barberId, date, service, extras) {
+    const start = floorSlot(bangkokNow().time);
+    const startIdx = Math.max(0, TIME_SLOTS.indexOf(start));
+    const order = TIME_SLOTS.slice(startIdx).concat(TIME_SLOTS.slice(0, startIdx).reverse());
+    for (let pass = 0; pass < 2; pass += 1) {
+        const extraList = pass === 0 ? extras : [];
+        for (const slot of order) {
+            if (!canPlace(barberId, date, slot, service, extraList).error) {
+                return slot;
+            }
+        }
+    }
+    return null;
+}
+
+function posBooking(req, id) {
+    const row = db.prepare("SELECT * FROM bookings WHERE id = ?").get(id);
+    if (!row) {
+        return null;
+    }
+    if (row.barber_id !== req.barber.barber_id && req.barber.role !== "owner" && req.barber.barber_id !== "rim") {
+        return null;
+    }
+    return row;
+}
+
+function applyPayment(existing, extras, method) {
+    const paidAt = new Date().toISOString();
+    db.prepare(`
+        UPDATE bookings
+        SET extras = ?, status = 'done', payment_method = ?, paid_at = ?, reminded_at = COALESCE(NULLIF(reminded_at, ''), ?)
+        WHERE id = ?
+    `).run(JSON.stringify(extras), method, paidAt, paidAt, existing.id);
+    return decorateBooking(db.prepare("SELECT * FROM bookings WHERE id = ?").get(existing.id));
+}
+
 function bookingAmount(row) {
     const extras = Array.isArray(row.extras) ? row.extras : parseExtras(row.extras, row.service);
     const base = (SERVICES[row.service] && SERVICES[row.service].price) || 0;
@@ -286,7 +334,9 @@ function decorateBooking(row) {
         extra_total: extraTotal,
         amount: base + extraTotal,
         slots,
-        end_time: slotEnd(row.time, slots)
+        end_time: slotEnd(row.time, slots),
+        payment_method: row.payment_method || null,
+        paid_at: row.paid_at || null
     });
     delete out.cancel_token;
     return out;
@@ -1007,6 +1057,18 @@ function serviceLine(row) {
     return extra ? `${main} + ${extra}` : main;
 }
 
+function isWalkin(row) {
+    return row.note === "walk-in" || row.note === "Walk in" || row.phone === "walkin" || row.customer_name === "วอล์กอิน";
+}
+
+function payrollNote(row) {
+    return isWalkin(row) ? "Walk in" : (row.note || "");
+}
+
+function payrollPhone(row) {
+    return isWalkin(row) ? "" : prettyPhone(row.phone);
+}
+
 function payrollRange(date, period) {
     if (period === "week") {
         return weekRange(date);
@@ -1048,14 +1110,14 @@ function payrollBarberSheets(details) {
             name: sheetName(barber.name),
             widths: [16, 16, 16, 28, 12, 18],
             rows: [
-                [h("วันเวลา"), h("ลูกค้า"), h("เบอร์"), h("บริการ"), h("ยอด"), h("หมายเหตุ")],
+                [h("วันเวลา"), h("ลูกค้า"), h("เบอร์"), h("บริการ"), h("ยอด"), h("สถานะ")],
                 ...rows.map((row) => [
                     s(whenLabel(row.date, row.time)),
-                    s(row.customer_name),
-                    s(prettyPhone(row.phone)),
+                    s(isWalkin(row) ? "Walk in" : row.customer_name),
+                    s(payrollPhone(row)),
                     { v: serviceLine(row), w: true },
                     n(row.amount),
-                    { v: row.note || "", w: true }
+                    { v: payrollNote(row), w: true }
                 ]),
                 [s("รวม " + barber.name), s(""), s(""), s(rows.length + " คน"), n(revenue), s("")]
             ]
@@ -1167,6 +1229,127 @@ app.patch("/api/barber/bookings/:id", requireBarber, (req, res) => {
     }
 
     const booking = decorateBooking(db.prepare("SELECT * FROM bookings WHERE id = ?").get(id));
+    res.json({ ok: true, booking });
+});
+
+app.get("/api/barber/pos", requireBarber, requireOwner, (req, res) => {
+    const date = String(req.query.date || todayISO());
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: "bad_date" });
+    }
+    const rows = db.prepare(`
+        SELECT b.*, br.name AS barber_name
+        FROM bookings b JOIN barbers br ON br.id = b.barber_id
+        WHERE b.date = ? AND b.status != 'cancelled'
+        ORDER BY b.time ASC, b.id ASC
+    `).all(date).map(decorateBooking);
+    res.json({
+        barber: {
+            id: req.barber.barber_id,
+            name: req.barber.name,
+            username: req.barber.username,
+            role: req.barber.role || "barber"
+        },
+        date,
+        barbers: listBarbers(true),
+        open: rows.filter((row) => row.status === "pending" || row.status === "confirmed"),
+        paid: rows.filter((row) => row.status === "done")
+    });
+});
+
+app.post("/api/barber/bookings/:id/pay", requireBarber, requireOwner, (req, res) => {
+    const existing = posBooking(req, Number(req.params.id));
+    if (!existing) {
+        return res.status(404).json({ error: "not_found" });
+    }
+    const method = String(req.body.method || "");
+    if (method !== "cash" && method !== "transfer") {
+        return res.status(400).json({ error: "bad_method" });
+    }
+    if (existing.status === "cancelled") {
+        return res.status(409).json({ error: "already_cancelled" });
+    }
+    let extras = parseExtras(existing.extras, existing.service);
+    if (Array.isArray(req.body.extras)) {
+        extras = parseExtras(req.body.extras, existing.service);
+    }
+    if (existing.status !== "done") {
+        const place = canPlace(existing.barber_id, existing.date, existing.time, existing.service, extras, existing.id);
+        if (place.error) {
+            return res.status(409).json({ error: place.error });
+        }
+    }
+    const booking = applyPayment(existing, extras, method);
+    res.json({ ok: true, booking });
+});
+
+app.post("/api/barber/pos/walkin", requireBarber, requireOwner, (req, res) => {
+    const owner = req.barber.role === "owner" || req.barber.barber_id === "rim";
+    let barberId = req.barber.barber_id;
+    if (owner && req.body.barber_id) {
+        barberId = String(req.body.barber_id);
+    }
+    const staff = listBarbers(true).find((row) => row.id === barberId);
+    if (!staff) {
+        return res.status(400).json({ error: "bad_barber" });
+    }
+    const name = String(req.body.customer_name || req.body.name || "").trim() || "วอล์กอิน";
+    const phoneRaw = String(req.body.phone || "").replace(/\s+/g, "");
+    const phone = phoneRaw || "walkin";
+    const service = String(req.body.service || "");
+    const method = String(req.body.method || "");
+    const extras = parseExtras(req.body.extras, service);
+    if (name.length > 80) {
+        return res.status(400).json({ error: "bad_name" });
+    }
+    if (phone !== "walkin" && !/^[0-9+]{8,16}$/.test(phone)) {
+        return res.status(400).json({ error: "bad_phone" });
+    }
+    if (!SERVICES[service]) {
+        return res.status(400).json({ error: "bad_service" });
+    }
+    if (method !== "cash" && method !== "transfer") {
+        return res.status(400).json({ error: "bad_method" });
+    }
+    const date = todayISO();
+    const time = findWalkinSlot(barberId, date, service, extras);
+    if (!time) {
+        return res.status(409).json({ error: "slot_taken" });
+    }
+    const createdAt = new Date().toISOString();
+    let info;
+    try {
+        info = db.prepare(`
+            INSERT INTO bookings (
+                customer_name, phone, service, extras, barber_id, date, time, note, status,
+                created_at, cancel_token, reminded_at, payment_method, paid_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'done', ?, ?, ?, ?, ?)
+        `).run(
+            name,
+            phone,
+            service,
+            JSON.stringify(extras),
+            barberId,
+            date,
+            time,
+            "Walk in",
+            createdAt,
+            makeCancelToken(),
+            createdAt,
+            method,
+            createdAt
+        );
+    } catch (err) {
+        if (err && String(err.code || "").startsWith("SQLITE_CONSTRAINT")) {
+            return res.status(409).json({ error: "slot_taken" });
+        }
+        throw err;
+    }
+    const booking = decorateBooking(db.prepare(`
+        SELECT b.*, br.name AS barber_name
+        FROM bookings b JOIN barbers br ON br.id = b.barber_id
+        WHERE b.id = ?
+    `).get(info.lastInsertRowid));
     res.json({ ok: true, booking });
 });
 

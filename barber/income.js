@@ -133,9 +133,13 @@
     function renderShop(data) {
         var el = document.getElementById("shop-income");
         var link = document.getElementById("manage-link");
+        var pos = document.getElementById("pos-link");
         var owner = isOwner(data.barber);
         if (link) {
             link.classList.toggle("d-none", !owner);
+        }
+        if (pos) {
+            pos.classList.toggle("d-none", !owner);
         }
         document.getElementById("export-week").classList.toggle("d-none", !owner);
         document.getElementById("export-month").classList.toggle("d-none", !owner);
