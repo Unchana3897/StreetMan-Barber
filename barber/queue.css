@@ -549,6 +549,23 @@
     margin-bottom: 14px;
 }
 
+.pos-other {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    margin: 10px 0 8px;
+}
+
+.pos-other-input {
+    margin-bottom: 0;
+}
+
+.pos-other-add {
+    min-height: 52px;
+    white-space: nowrap;
+    font-size: 16px;
+}
+
 .pos-checkout label {
     display: block;
     margin: 8px 0 6px;
@@ -577,45 +594,116 @@
     inset: 0;
     background: rgba(0, 0, 0, 0.72);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
-    padding: 24px;
+    padding: 24px 16px;
+    overflow: auto;
     z-index: 40;
 }
 
 .pos-receipt-card {
-    background: #191C24;
-    padding: 16px 18px;
-    width: min(280px, 100%);
-    font-size: 13px;
-    line-height: 1.35;
+    width: min(320px, 100%);
 }
 
-.pos-receipt-card h2 {
+.pos-slip {
+    background: #fff;
+    color: #111;
+    padding: 14px 12px 16px;
+    width: 100%;
+    font-size: 12px;
+    line-height: 1.35;
+    text-align: center;
+}
+
+.pos-slip-logo {
+    display: block;
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 6px;
+    object-fit: contain;
+}
+
+.pos-slip-shop {
+    margin: 0 0 2px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.pos-slip h2 {
+    color: #111;
     font-size: 16px;
     margin: 0 0 8px;
 }
 
-.pos-receipt-card p {
-    margin: 0 0 4px;
-    font-size: 13px;
+.pos-slip-info,
+.pos-slip p {
+    margin: 0 0 3px;
+    font-size: 11px;
+    color: #111;
 }
 
-.pos-receipt-card .staff-kicker {
-    font-size: 10px;
-    margin-bottom: 4px;
+.pos-slip-rule {
+    border-top: 1px dashed #111;
+    margin: 8px 0;
 }
 
-.pos-receipt-card .queue-meta {
-    font-size: 12px;
+.pos-slip-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0;
+    text-align: left;
+    font-size: 11px;
 }
 
-.pos-receipt-card .pos-total {
-    font-size: 22px;
-    margin: 8px 0 6px;
+.pos-slip-table th,
+.pos-slip-table td {
+    padding: 3px 0;
+    border-bottom: 1px dotted #999;
 }
 
-.pos-receipt-card .pos-pay {
+.pos-slip-table th:last-child,
+.pos-slip-table td:last-child {
+    text-align: right;
+}
+
+.pos-slip-table th:nth-child(2),
+.pos-slip-table td:nth-child(2) {
+    text-align: center;
+    width: 18%;
+}
+
+.pos-slip-box {
+    border: 2px solid #111;
+    margin: 10px 0 8px;
+    padding: 8px 6px;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.pos-slip-qr {
+    display: block;
+    width: 132px;
+    height: 132px;
+    margin: 8px auto 4px;
+    object-fit: contain;
+    background: #fff;
+}
+
+.pos-slip-sign {
+    margin-top: 14px !important;
+}
+
+.pos-slip-thanks {
+    margin-top: 8px !important;
+    font-size: 11px;
+}
+
+.pos-slip-actions {
+    margin-top: 12px;
+}
+
+.pos-slip-actions .pos-pay {
     min-height: 44px;
     font-size: 15px;
     width: 100%;
@@ -636,6 +724,7 @@ body.pos-printing {
     background: #fff !important;
     min-height: 0 !important;
     height: auto !important;
+    padding: 0 !important;
 }
 
 body.pos-printing > *:not(.pos-receipt) {
@@ -648,28 +737,39 @@ body.pos-printing .pos-receipt {
     background: #fff !important;
     display: block !important;
     padding: 0 !important;
+    overflow: hidden !important;
 }
 
-body.pos-printing .pos-receipt-card {
-    width: 72mm !important;
-    max-width: 72mm !important;
+body.pos-printing .pos-receipt-card,
+body.pos-printing .pos-slip {
+    width: 100% !important;
+    max-width: none !important;
+}
+
+body.pos-printing .pos-slip-actions {
+    display: none !important;
 }
 
 @media print {
     @page {
-        margin: 8mm;
-        size: auto;
+        size: 98mm 190mm;
+        margin: 0;
     }
 
     html,
-    body {
+    body.staff-body,
+    body.pos-body {
         background: #fff !important;
         color: #000 !important;
-        min-height: 0 !important;
+        width: 98mm !important;
+        max-width: 98mm !important;
         height: auto !important;
-        overflow: visible !important;
+        max-height: 190mm !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
         margin: 0 !important;
         padding: 0 !important;
+        display: block !important;
     }
 
     body.pos-body > *:not(.pos-receipt) {
@@ -685,46 +785,94 @@ body.pos-printing .pos-receipt-card {
         background: #fff !important;
         color: #000 !important;
         padding: 0 !important;
+        margin: 0 !important;
         min-height: 0 !important;
         height: auto !important;
-        overflow: visible !important;
+        max-height: 190mm !important;
+        overflow: hidden !important;
         z-index: auto !important;
+        page-break-after: avoid !important;
+        break-after: avoid !important;
     }
 
-    .pos-receipt-card {
+    .pos-receipt-card,
+    .pos-slip {
         background: #fff !important;
         color: #000 !important;
         box-shadow: none !important;
-        width: 72mm !important;
-        max-width: 72mm !important;
-        padding: 0 !important;
-        font-size: 11px !important;
-        line-height: 1.3 !important;
-        page-break-inside: avoid;
-        break-inside: avoid;
+        width: 100% !important;
+        max-width: none !important;
+        max-height: 190mm !important;
+        overflow: hidden !important;
+        padding: 4mm 6mm 3mm !important;
+        font-size: 10px !important;
+        line-height: 1.25 !important;
+        page-break-after: avoid !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
     }
 
-    .pos-receipt-card h2 {
-        font-size: 14px !important;
-        margin: 0 0 6px !important;
-    }
-
-    .pos-receipt-card p,
-    .pos-receipt-card .queue-meta {
-        font-size: 11px !important;
+    .pos-slip h2 {
+        font-size: 13px !important;
         margin: 0 0 3px !important;
     }
 
-    .pos-receipt-card .staff-kicker {
-        font-size: 9px !important;
-        margin-bottom: 4px !important;
+    .pos-slip-shop {
+        font-size: 10px !important;
+        margin: 0 0 1px !important;
     }
 
-    .pos-receipt-card .pos-total {
-        font-size: 18px !important;
+    .pos-slip-info,
+    .pos-slip p {
+        font-size: 10px !important;
+        margin: 0 0 1px !important;
+    }
+
+    .pos-slip-rule {
+        margin: 4px 0 !important;
+    }
+
+    .pos-slip-table {
+        font-size: 10px !important;
+        margin: 4px 0 !important;
+    }
+
+    .pos-slip-table th,
+    .pos-slip-table td {
+        padding: 2px 0 !important;
+    }
+
+    .pos-slip-box {
+        font-size: 13px !important;
         margin: 6px 0 4px !important;
+        padding: 5px 4px !important;
     }
 
+    .pos-slip-logo {
+        width: 14mm !important;
+        height: 14mm !important;
+        margin: 0 auto 3px !important;
+    }
+
+    .pos-slip-qr {
+        width: 32mm !important;
+        height: 32mm !important;
+        margin: 4px auto 2px !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .pos-slip-sign {
+        margin-top: 6px !important;
+    }
+
+    .pos-slip-thanks {
+        margin-top: 2px !important;
+        page-break-before: avoid !important;
+        break-before: avoid !important;
+    }
+
+    .pos-slip-actions,
     .pos-receipt .btn,
     #receipt-print,
     #receipt-close {

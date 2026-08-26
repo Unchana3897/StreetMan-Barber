@@ -571,7 +571,7 @@
         }
         var pos = document.getElementById("pos-link");
         if (pos) {
-            pos.classList.toggle("d-none", !owner);
+            pos.classList.add("d-none");
         }
         renderWeek(data.upcoming, data.date);
         renderShopStatus(data);
@@ -673,7 +673,11 @@
     var booted = false;
 
     async function boot() {
-        await window.StreetManStore.me();
+        var me = await window.StreetManStore.me();
+        if (me && (me.role === "cashier" || me.id === "pos")) {
+            window.location.replace("pos.html");
+            return;
+        }
         if (booted) {
             await load();
             return;

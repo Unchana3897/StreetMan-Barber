@@ -17,11 +17,17 @@ seed();
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
-const SESSION_SECRET = process.env.SESSION_SECRET || "streetman-local-secret";
+const PRODUCTION = process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
+const SESSION_SECRET = process.env.SESSION_SECRET || (PRODUCTION
+    ? crypto.randomBytes(32).toString("hex")
+    : "streetman-local-secret");
 const SESSION_MS = 10 * 365 * 24 * 60 * 60 * 1000;
 const COOKIE_MS = 400 * 24 * 60 * 60 * 1000;
 const COOKIE = "sm_session";
 app.set("trust proxy", 1);
+if (PRODUCTION && !process.env.SESSION_SECRET) {
+    console.warn("SESSION_SECRET is not set. Set it on the host so staff stay logged in across restarts.");
+}
 
 const SERVICES = {
     haircut: { last: "19:00", price: 300, slots: 2, label: "ตัดผม" },
@@ -41,8 +47,53 @@ const TIME_SLOTS = [
 
 const live = new Map();
 const rate = new Map();
+const loginRate = new Map();
+
+function isSensitivePath(urlPath) {
+    let decoded = String(urlPath || "/");
+    try {
+        decoded = decodeURIComponent(decoded);
+    } catch (err) {
+        return true;
+    }
+    const normalized = path.posix.normalize("/" + decoded.replace(/\\/g, "/")).toLowerCase();
+    if (normalized.includes("\0") || normalized.split("/").includes("..")) {
+        return true;
+    }
+    const parts = normalized.split("/").filter(Boolean);
+    const blockedRoots = new Set(["data", "server", "node_modules", ".git", ".cursor", ".github"]);
+    if (parts[0] && blockedRoots.has(parts[0])) {
+        return true;
+    }
+    if (parts.some((part) => part.startsWith("."))) {
+        return true;
+    }
+    const file = parts[parts.length - 1] || "";
+    if (/\.(sqlite3?|db|env|log|pem|key)$/i.test(file)) {
+        return true;
+    }
+    return file === "package.json" || file === "package-lock.json" || file === "vapid.json";
+}
 
 app.disable("x-powered-by");
+app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    if (req.secure || req.headers["x-forwarded-proto"] === "https") {
+        res.setHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");
+    }
+    next();
+});
+app.use((req, res, next) => {
+    if (isSensitivePath(req.path)) {
+        return String(req.path || "").startsWith("/api/")
+            ? res.status(404).json({ error: "not_found" })
+            : res.status(404).end();
+    }
+    next();
+});
 app.use(express.json({ limit: "32kb" }));
 app.use(cookieParser(SESSION_SECRET));
 app.use("/barber", (req, res, next) => {
@@ -143,31 +194,38 @@ function daySeries(barberId, from, to) {
 function incomeFor(barberId, date) {
     const week = weekRange(date);
     const month = monthRange(date);
+    const dayRows = bookingsBetween(barberId, date, date);
+    const weekRows = bookingsBetween(barberId, week.from, week.to);
+    const monthRows = bookingsBetween(barberId, month.from, month.to);
     return {
         date,
-        day: Object.assign({ date }, summarize(bookingsBetween(barberId, date, date))),
+        day: Object.assign({ date }, summarize(dayRows), { sources: sourceSplit(dayRows) }),
         week: Object.assign(
             { from: week.from, to: week.to },
-            summarize(bookingsBetween(barberId, week.from, week.to)),
-            { series: daySeries(barberId, week.from, week.to) }
+            summarize(weekRows),
+            { series: daySeries(barberId, week.from, week.to), sources: sourceSplit(weekRows) }
         ),
         month: Object.assign(
             { key: month.key, from: month.from, to: month.to },
-            summarize(bookingsBetween(barberId, month.from, month.to)),
-            { series: daySeries(barberId, month.from, month.to) }
+            summarize(monthRows),
+            { series: daySeries(barberId, month.from, month.to), sources: sourceSplit(monthRows) }
         )
     };
 }
 
 function listBarbers(activeOnly) {
     const sql = activeOnly
-        ? "SELECT id, name, username, role, active FROM barbers WHERE active = 1 ORDER BY CASE WHEN role = 'owner' THEN 0 ELSE 1 END, name"
-        : "SELECT id, name, username, role, active FROM barbers ORDER BY CASE WHEN role = 'owner' THEN 0 ELSE 1 END, name";
+        ? "SELECT id, name, username, role, active FROM barbers WHERE active = 1 ORDER BY CASE WHEN role = 'owner' THEN 0 WHEN role = 'cashier' THEN 2 ELSE 1 END, name"
+        : "SELECT id, name, username, role, active FROM barbers ORDER BY CASE WHEN role = 'owner' THEN 0 WHEN role = 'cashier' THEN 2 ELSE 1 END, name";
     return db.prepare(sql).all();
 }
 
+function listChairs(activeOnly) {
+    return listBarbers(activeOnly).filter((row) => row.role !== "cashier");
+}
+
 function activeIds() {
-    return listBarbers(true).map((row) => row.id);
+    return listChairs(true).map((row) => row.id);
 }
 
 function publicBarber(row) {
@@ -178,6 +236,25 @@ function publicBarber(row) {
         role: row.role || "barber",
         active: Number(row.active) === 1
     };
+}
+
+function extraAmount(item) {
+    if (item && typeof item === "object") {
+        const n = Math.round(Number(item.amount));
+        return n >= 1 && n <= 50000 ? n : 0;
+    }
+    return (SERVICES[item] && SERVICES[item].price) || 0;
+}
+
+function extraLabel(item) {
+    if (item && typeof item === "object") {
+        return `อื่นๆ ${extraAmount(item)}`;
+    }
+    return (SERVICES[item] && SERVICES[item].label) || String(item || "");
+}
+
+function isOtherExtra(item) {
+    return Boolean(item && typeof item === "object" && (item.type === "other" || item.id === "other"));
 }
 
 function parseExtras(raw, mainService) {
@@ -191,17 +268,26 @@ function parseExtras(raw, mainService) {
         list = [];
     }
     const seen = new Set();
-    return list.filter((item) => {
+    const extras = [];
+    list.forEach((item) => {
+        if (isOtherExtra(item)) {
+            const amount = extraAmount(item);
+            if (amount) {
+                extras.push({ type: "other", amount });
+            }
+            return;
+        }
         if (!SERVICES[item] || item === mainService || seen.has(item)) {
-            return false;
+            return;
         }
         seen.add(item);
-        return true;
+        extras.push(item);
     });
+    return extras;
 }
 
 function extrasTotal(extras) {
-    return extras.reduce((sum, item) => sum + ((SERVICES[item] && SERVICES[item].price) || 0), 0);
+    return extras.reduce((sum, item) => sum + extraAmount(item), 0);
 }
 
 function serviceSlots(service) {
@@ -209,7 +295,12 @@ function serviceSlots(service) {
 }
 
 function extrasSlotCount(extras) {
-    return (extras || []).reduce((sum, item) => sum + serviceSlots(item), 0);
+    return (extras || []).reduce((sum, item) => {
+        if (isOtherExtra(item)) {
+            return sum;
+        }
+        return sum + serviceSlots(item);
+    }, 0);
 }
 
 function bookingSlotCount(row) {
@@ -299,7 +390,10 @@ function posBooking(req, id) {
     if (!row) {
         return null;
     }
-    if (row.barber_id !== req.barber.barber_id && req.barber.role !== "owner" && req.barber.barber_id !== "rim") {
+    if (isCashier(req) || req.barber.role === "owner" || req.barber.barber_id === "rim") {
+        return row;
+    }
+    if (row.barber_id !== req.barber.barber_id) {
         return null;
     }
     return row;
@@ -438,6 +532,17 @@ function summarize(rows) {
     };
 }
 
+function sourceSplit(rows) {
+    const done = rows.filter((row) => row.status === "done");
+    const shop = done.filter(isWalkin);
+    const online = done.filter((row) => !isWalkin(row));
+    const money = (list) => list.reduce((sum, row) => sum + bookingAmount(row), 0);
+    return {
+        shop: { done: shop.length, revenue: money(shop) },
+        online: { done: online.length, revenue: money(online) }
+    };
+}
+
 function bookingsBetween(barberId, from, to) {
     if (barberId) {
         return db.prepare(`
@@ -465,7 +570,7 @@ function periodSummary(barberId, date) {
 
 function shopSummary(date) {
     const month = monthRange(date);
-    const barbers = listBarbers(false);
+    const barbers = listChairs(false);
     return {
         day: summarize(bookingsBetween(null, date, date)),
         month: Object.assign({ key: month.key }, summarize(bookingsBetween(null, month.from, month.to))),
@@ -531,6 +636,29 @@ function tooMany(ip) {
     return false;
 }
 
+function loginLimited(ip, username) {
+    const now = Date.now();
+    const windowMs = 15 * 60 * 1000;
+    const keys = [
+        { key: "ip:" + ip, max: 25 },
+        { key: "user:" + ip + ":" + String(username || "").toLowerCase(), max: 8 }
+    ];
+    return keys.some((item) => {
+        const list = (loginRate.get(item.key) || []).filter((t) => now - t < windowMs);
+        loginRate.set(item.key, list);
+        return list.length >= item.max;
+    });
+}
+
+function recordLoginFail(ip, username) {
+    const now = Date.now();
+    ["ip:" + ip, "user:" + ip + ":" + String(username || "").toLowerCase()].forEach((key) => {
+        const list = loginRate.get(key) || [];
+        list.push(now);
+        loginRate.set(key, list);
+    });
+}
+
 function cookieOptions(req) {
     return {
         httpOnly: true,
@@ -545,10 +673,6 @@ function sessionToken(req) {
     const header = String(req.headers["x-session-token"] || "").trim();
     if (/^[a-f0-9]{64}$/i.test(header)) {
         return header;
-    }
-    const query = String((req.query && req.query.token) || "").trim();
-    if (/^[a-f0-9]{64}$/i.test(query) && req.path === "/api/barber/events") {
-        return query;
     }
     return req.cookies[COOKIE] || "";
 }
@@ -589,6 +713,24 @@ function requireBarber(req, res, next) {
 function requireOwner(req, res, next) {
     if (!req.barber || (req.barber.role !== "owner" && req.barber.barber_id !== "rim")) {
         return res.status(403).json({ error: "owner_required" });
+    }
+    next();
+}
+
+function isCashier(req) {
+    return req.barber && (req.barber.role === "cashier" || req.barber.barber_id === "pos");
+}
+
+function requirePos(req, res, next) {
+    if (!isCashier(req)) {
+        return res.status(403).json({ error: "pos_required" });
+    }
+    next();
+}
+
+function requireChair(req, res, next) {
+    if (isCashier(req)) {
+        return res.status(403).json({ error: "pos_only" });
     }
     next();
 }
@@ -776,10 +918,7 @@ app.post("/api/bookings", (req, res) => {
         }
         const existing = findOpenBooking(phone);
         if (existing) {
-            return {
-                error: "already_booked",
-                existing: { date: existing.date, time: existing.time, service: existing.service }
-            };
+            return { error: "already_booked" };
         }
         const picked = pickBarber(requestedBarber, date, time, service);
         if (!picked || picked.error) {
@@ -796,11 +935,7 @@ app.post("/api/bookings", (req, res) => {
     try {
         const result = insertBooking();
         if (result.error) {
-            const body = { error: result.error };
-            if (result.existing) {
-                body.booking = result.existing;
-            }
-            return res.status(result.error === "shop_closed" ? 403 : 409).json(body);
+            return res.status(result.error === "shop_closed" ? 403 : 409).json({ error: result.error });
         }
         chosen = result.picked;
         info = result.row;
@@ -875,10 +1010,15 @@ app.post("/api/bookings/cancel", (req, res) => {
 });
 
 app.post("/api/login", (req, res) => {
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
     const username = String(req.body.username || "").trim().toLowerCase();
     const password = String(req.body.password || "");
+    if (loginLimited(ip, username)) {
+        return res.status(429).json({ error: "too_many" });
+    }
     const barber = db.prepare("SELECT * FROM barbers WHERE username = ?").get(username);
     if (!barber || Number(barber.active) !== 1 || !bcrypt.compareSync(password, barber.password_hash)) {
+        recordLoginFail(ip, username);
         return res.status(401).json({ error: "bad_login" });
     }
 
@@ -919,11 +1059,11 @@ app.get("/api/me", requireBarber, (req, res) => {
 
 app.get("/api/barbers", (req, res) => {
     res.json({
-        barbers: listBarbers(true).map((row) => ({ id: row.id, name: row.name }))
+        barbers: listChairs(true).map((row) => ({ id: row.id, name: row.name }))
     });
 });
 
-app.get("/api/barber/bookings", requireBarber, (req, res) => {
+app.get("/api/barber/bookings", requireBarber, requireChair, (req, res) => {
     const date = String(req.query.date || todayISO());
     const rows = db.prepare(`
         SELECT id, customer_name, phone, service, extras, barber_id, date, time, note, status, created_at
@@ -934,7 +1074,7 @@ app.get("/api/barber/bookings", requireBarber, (req, res) => {
     res.json({ date, bookings: rows.map(decorateBooking) });
 });
 
-app.get("/api/barber/dashboard", requireBarber, (req, res) => {
+app.get("/api/barber/dashboard", requireBarber, requireChair, (req, res) => {
     const date = String(req.query.date || todayISO());
     const barberId = req.barber.barber_id;
     const now = bangkokNow();
@@ -997,7 +1137,7 @@ app.get("/api/barber/dashboard", requireBarber, (req, res) => {
     });
 });
 
-app.get("/api/barber/income", requireBarber, (req, res) => {
+app.get("/api/barber/income", requireBarber, requireChair, (req, res) => {
     const date = String(req.query.date || todayISO());
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         return res.status(400).json({ error: "bad_date" });
@@ -1017,7 +1157,7 @@ app.get("/api/barber/income", requireBarber, (req, res) => {
         month: mine.month,
         shop: owner
             ? Object.assign(incomeFor(null, date), {
-                barbers: listBarbers(false).map((barber) => Object.assign(
+                barbers: listChairs(false).map((barber) => Object.assign(
                     { id: barber.id, name: barber.name, username: barber.username, active: Number(barber.active) === 1 },
                     incomeFor(barber.id, date)
                 ))
@@ -1032,7 +1172,7 @@ function serviceLabel(service) {
 
 function extrasLabel(row) {
     const extras = Array.isArray(row.extras) ? row.extras : parseExtras(row.extras, row.service);
-    return extras.map(serviceLabel).join(", ");
+    return extras.map(extraLabel).join(", ");
 }
 
 function whenLabel(date, time) {
@@ -1103,23 +1243,24 @@ function payrollBarberSheets(details) {
         grouped.get(row.barber_id).push(row);
     });
     const h = xlsx.h;
-    return listBarbers(false).map((barber) => {
+    return listChairs(false).map((barber) => {
         const rows = grouped.get(barber.id) || [];
         const revenue = rows.reduce((sum, row) => sum + bookingAmount(row), 0);
         return {
             name: sheetName(barber.name),
-            widths: [16, 16, 16, 28, 12, 18],
+            widths: [16, 16, 16, 28, 12, 14, 18],
             rows: [
-                [h("วันเวลา"), h("ลูกค้า"), h("เบอร์"), h("บริการ"), h("ยอด"), h("สถานะ")],
+                [h("วันเวลา"), h("ลูกค้า"), h("เบอร์"), h("บริการ"), h("ยอด"), h("ช่องทาง"), h("สถานะ")],
                 ...rows.map((row) => [
                     s(whenLabel(row.date, row.time)),
                     s(isWalkin(row) ? "Walk in" : row.customer_name),
                     s(payrollPhone(row)),
                     { v: serviceLine(row), w: true },
                     n(row.amount),
+                    s(isWalkin(row) ? "หน้าร้าน" : "ออนไลน์"),
                     { v: payrollNote(row), w: true }
                 ]),
-                [s("รวม " + barber.name), s(""), s(""), s(rows.length + " คน"), n(revenue), s("")]
+                [s("รวม " + barber.name), s(""), s(""), s(rows.length + " คน"), n(revenue), s(""), s("")]
             ]
         };
     });
@@ -1138,7 +1279,7 @@ function payrollWorkbook(from, to) {
         current.revenue += bookingAmount(row);
         byBarber.set(row.barber_id, current);
     });
-    const summary = listBarbers(false).map((barber) => {
+    const summary = listChairs(false).map((barber) => {
         const row = byBarber.get(barber.id) || { name: barber.name, done: 0, revenue: 0 };
         return { name: barber.name, username: barber.username, done: row.done, revenue: row.revenue };
     });
@@ -1154,6 +1295,8 @@ function payrollWorkbook(from, to) {
             rows: [
                 [h("ช่าง"), h("ชื่อเข้าสู่ระบบ"), h("จำนวนหัว"), h("ยอดร้าน (บาท)"), h("ยอดจ่ายช่าง")],
                 ...summary.map((row) => [s(row.name), s(row.username), n(row.done), n(row.revenue), s("")]),
+                [s("หน้าร้าน"), s("วอล์กอิน POS"), n(details.filter(isWalkin).length), n(details.filter(isWalkin).reduce((sum, row) => sum + bookingAmount(row), 0)), s("")],
+                [s("จองออนไลน์"), s("จองผ่านเว็บ"), n(details.filter((row) => !isWalkin(row)).length), n(details.filter((row) => !isWalkin(row)).reduce((sum, row) => sum + bookingAmount(row), 0)), s("")],
                 [s("รวมทั้งร้าน"), s(""), n(totalDone), n(totalRevenue), s("")]
             ]
         },
@@ -1191,7 +1334,7 @@ function updateShop(req, res) {
 app.patch("/api/owner/shop", requireBarber, requireOwner, updateShop);
 app.post("/api/owner/shop", requireBarber, requireOwner, updateShop);
 
-app.patch("/api/barber/bookings/:id", requireBarber, (req, res) => {
+app.patch("/api/barber/bookings/:id", requireBarber, requireChair, (req, res) => {
     const id = Number(req.params.id);
     const existing = db.prepare("SELECT * FROM bookings WHERE id = ? AND barber_id = ?").get(id, req.barber.barber_id);
     if (!existing) {
@@ -1232,7 +1375,7 @@ app.patch("/api/barber/bookings/:id", requireBarber, (req, res) => {
     res.json({ ok: true, booking });
 });
 
-app.get("/api/barber/pos", requireBarber, requireOwner, (req, res) => {
+app.get("/api/barber/pos", requireBarber, requirePos, (req, res) => {
     const date = String(req.query.date || todayISO());
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         return res.status(400).json({ error: "bad_date" });
@@ -1251,13 +1394,13 @@ app.get("/api/barber/pos", requireBarber, requireOwner, (req, res) => {
             role: req.barber.role || "barber"
         },
         date,
-        barbers: listBarbers(true),
+        barbers: listChairs(true),
         open: rows.filter((row) => row.status === "pending" || row.status === "confirmed"),
         paid: rows.filter((row) => row.status === "done")
     });
 });
 
-app.post("/api/barber/bookings/:id/pay", requireBarber, requireOwner, (req, res) => {
+app.post("/api/barber/bookings/:id/pay", requireBarber, requirePos, (req, res) => {
     const existing = posBooking(req, Number(req.params.id));
     if (!existing) {
         return res.status(404).json({ error: "not_found" });
@@ -1283,13 +1426,13 @@ app.post("/api/barber/bookings/:id/pay", requireBarber, requireOwner, (req, res)
     res.json({ ok: true, booking });
 });
 
-app.post("/api/barber/pos/walkin", requireBarber, requireOwner, (req, res) => {
-    const owner = req.barber.role === "owner" || req.barber.barber_id === "rim";
-    let barberId = req.barber.barber_id;
-    if (owner && req.body.barber_id) {
-        barberId = String(req.body.barber_id);
+app.post("/api/barber/pos/walkin", requireBarber, requirePos, (req, res) => {
+    let barberId = String(req.body.barber_id || "");
+    const chairs = listChairs(true);
+    if (!chairs.some((row) => row.id === barberId)) {
+        barberId = chairs[0] ? chairs[0].id : "";
     }
-    const staff = listBarbers(true).find((row) => row.id === barberId);
+    const staff = chairs.find((row) => row.id === barberId);
     if (!staff) {
         return res.status(400).json({ error: "bad_barber" });
     }
@@ -1390,10 +1533,11 @@ app.post("/api/owner/barbers", requireBarber, requireOwner, (req, res) => {
     if (existing) {
         return res.status(409).json({ error: "username_taken" });
     }
+    const role = req.body.role === "cashier" ? "cashier" : "barber";
     db.prepare(`
         INSERT INTO barbers (id, name, username, password_hash, role, active)
-        VALUES (?, ?, ?, ?, 'barber', 1)
-    `).run(username, name, username, bcrypt.hashSync(password, 10));
+        VALUES (?, ?, ?, ?, ?, 1)
+    `).run(username, name, username, bcrypt.hashSync(password, 10), role);
     const barber = db.prepare("SELECT id, name, username, role, active FROM barbers WHERE id = ?").get(username);
     res.status(201).json({ ok: true, barber: publicBarber(barber) });
 });
@@ -1412,7 +1556,7 @@ app.patch("/api/owner/barbers/:id", requireBarber, requireOwner, (req, res) => {
     if (req.body.active != null) {
         active = req.body.active === true || req.body.active === 1 || req.body.active === "1" ? 1 : 0;
     }
-    if (barber.role === "owner") {
+    if (barber.role === "owner" || barber.role === "cashier") {
         active = 1;
     }
     const password = req.body.password != null ? String(req.body.password) : "";
@@ -1422,11 +1566,12 @@ app.patch("/api/owner/barbers/:id", requireBarber, requireOwner, (req, res) => {
     if (password) {
         db.prepare("UPDATE barbers SET name = ?, active = ?, password_hash = ? WHERE id = ?")
             .run(name, active, bcrypt.hashSync(password, 10), id);
+        db.prepare("DELETE FROM sessions WHERE barber_id = ?").run(id);
     } else {
         db.prepare("UPDATE barbers SET name = ?, active = ? WHERE id = ?").run(name, active, id);
-    }
-    if (active === 0) {
-        db.prepare("DELETE FROM sessions WHERE barber_id = ?").run(id);
+        if (active === 0) {
+            db.prepare("DELETE FROM sessions WHERE barber_id = ?").run(id);
+        }
     }
     const updated = db.prepare("SELECT id, name, username, role, active FROM barbers WHERE id = ?").get(id);
     res.json({ ok: true, barber: publicBarber(updated) });

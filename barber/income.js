@@ -79,6 +79,24 @@
         el.querySelector(".day-rev").textContent = "ตัดเสร็จ " + (period.done || 0) + " คน";
     }
 
+    function sourcesOf(period) {
+        return (period && period.sources) || {
+            shop: { done: 0, revenue: 0 },
+            online: { done: 0, revenue: 0 }
+        };
+    }
+
+    function fillSourceRow(wrap, label, periods, date) {
+        wrap.innerHTML =
+            "<article class=\"summary-card\"><span></span><strong></strong><span class=\"day-rev\"></span></article>" +
+            "<article class=\"summary-card\"><span></span><strong></strong><span class=\"day-rev\"></span></article>" +
+            "<article class=\"summary-card\"><span></span><strong></strong><span class=\"day-rev\"></span></article>";
+        var cards = wrap.querySelectorAll(".summary-card");
+        fillCard(cards[0], label + " · วันนี้", periods.day);
+        fillCard(cards[1], label + " · สัปดาห์นี้", periods.week);
+        fillCard(cards[2], label + " · " + monthLabel((periods.monthKey) || date), periods.month);
+    }
+
     function renderCards(data) {
         var wrap = document.getElementById("income-cards");
         wrap.innerHTML =
@@ -139,7 +157,7 @@
             link.classList.toggle("d-none", !owner);
         }
         if (pos) {
-            pos.classList.toggle("d-none", !owner);
+            pos.classList.add("d-none");
         }
         document.getElementById("export-week").classList.toggle("d-none", !owner);
         document.getElementById("export-month").classList.toggle("d-none", !owner);
@@ -155,7 +173,14 @@
         el.className = "shop-panel";
         el.innerHTML =
             "<h2>ยอดทั้งร้าน</h2>" +
+            "<p class=\"staff-copy\">รวมคิวที่ตัดเสร็จแล้วทั้งวอล์กอินหน้าร้านและจองออนไลน์</p>" +
             "<div class=\"summary-grid is-3\" id=\"shop-cards\"></div>" +
+            "<h2 class=\"mt-4\">หน้าร้าน · วอล์กอิน</h2>" +
+            "<p class=\"staff-copy\">คิดเงินที่เครื่อง POS ไม่ได้จองผ่านเว็บ</p>" +
+            "<div class=\"summary-grid is-3\" id=\"source-shop-cards\"></div>" +
+            "<h2 class=\"mt-4\">จองออนไลน์</h2>" +
+            "<p class=\"staff-copy\">ลูกค้าจองผ่านเว็บ แม้จะจ่ายที่ร้านก็ตาม</p>" +
+            "<div class=\"summary-grid is-3\" id=\"source-online-cards\"></div>" +
             "<h2 class=\"mt-4\">เปรียบเทียบช่าง · เดือนนี้</h2>" +
             "<div class=\"chart-bars is-people\" id=\"shop-chart\"></div>" +
             "<table class=\"shop-table\"><thead><tr><th>ช่าง</th><th>วันนี้</th><th>สัปดาห์</th><th>เดือน</th></tr></thead><tbody>" +
@@ -169,6 +194,18 @@
         fillCard(shopCards[0], "วันนี้ทั้งร้าน", shop.day);
         fillCard(shopCards[1], "สัปดาห์นี้ทั้งร้าน", shop.week);
         fillCard(shopCards[2], monthLabel((shop.month && shop.month.key) || data.date) + " ทั้งร้าน", shop.month);
+        fillSourceRow(el.querySelector("#source-shop-cards"), "หน้าร้าน", {
+            day: sourcesOf(shop.day).shop,
+            week: sourcesOf(shop.week).shop,
+            month: sourcesOf(shop.month).shop,
+            monthKey: shop.month && shop.month.key
+        }, data.date);
+        fillSourceRow(el.querySelector("#source-online-cards"), "จองออนไลน์", {
+            day: sourcesOf(shop.day).online,
+            week: sourcesOf(shop.week).online,
+            month: sourcesOf(shop.month).online,
+            monthKey: shop.month && shop.month.key
+        }, data.date);
         renderBars(el.querySelector("#shop-chart"), (shop.barbers || []).map(function (row) {
             return {
                 key: row.id,
@@ -252,7 +289,11 @@
         window.location.href = "login.html";
     });
 
-    window.StreetManStore.me().then(function () {
+    window.StreetManStore.me().then(function (me) {
+        if (me && (me.role === "cashier" || me.id === "pos")) {
+            window.location.replace("pos.html");
+            return;
+        }
         return load();
     }).catch(function () {
         window.location.href = "login.html";

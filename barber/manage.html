@@ -19,7 +19,7 @@
         <div>
             <p class="staff-kicker mb-1">StreetMan Barber Phuket · เจ้าของร้าน</p>
             <h1>จัดการช่าง</h1>
-            <p class="staff-copy mb-0">เพิ่ม แก้ชื่อ ตั้งรหัสผ่าน หรือปิดงานช่าง คนที่ปิดงานจะไม่ขึ้นให้ลูกค้าจอง</p>
+            <p class="staff-copy mb-0">เพิ่มช่าง ตั้งรหัสผ่าน หรือสร้างบัญชีเครื่อง POS คนที่ปิดงานจะไม่ขึ้นให้ลูกค้าจอง</p>
         </div>
         <div class="queue-top-actions">
             <a href="dashboard.html" class="btn btn-outline-light">กลับ Dashboard</a>
@@ -40,6 +40,16 @@
                 <input class="form-control" id="new-username" placeholder="ชื่อเข้าสู่ระบบ เช่น ton" required maxlength="20">
                 <input class="form-control" id="new-password" type="password" placeholder="รหัสผ่านอย่างน้อย 6 ตัว" required minlength="6">
                 <button class="btn btn-primary py-3" type="submit">เพิ่มช่าง</button>
+            </form>
+        </section>
+        <section class="summary-panel">
+            <h2>สร้างบัญชีเครื่อง POS</h2>
+            <p class="staff-copy">บัญชีนี้ใช้คิดเงินหน้าร้านอย่างเดียว เข้าหน้าคิวและรายได้ไม่ได้ มีบัญชี <strong>pos</strong> อยู่แล้ว เพิ่มได้ถ้ามีเครื่องคิดเงินอีกเครื่อง</p>
+            <form id="add-pos-form" class="manage-form">
+                <input class="form-control" id="pos-name" placeholder="ชื่อที่แสดง เช่น เคาน์เตอร์ 2" value="เคาน์เตอร์" required maxlength="40">
+                <input class="form-control" id="pos-username" placeholder="ชื่อเข้าสู่ระบบ เช่น pos2" required maxlength="20">
+                <input class="form-control" id="pos-password" type="password" placeholder="รหัสผ่านอย่างน้อย 6 ตัว" required minlength="6">
+                <button class="btn btn-primary py-3" type="submit">สร้างบัญชี POS</button>
             </form>
         </section>
         <section id="staff-list"></section>

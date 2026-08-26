@@ -11,7 +11,8 @@
         { id: "rim", name: "Rim", username: "rim" },
         { id: "bank", name: "Bank", username: "bank" },
         { id: "rick", name: "Rick", username: "rick" },
-        { id: "dee", name: "Dee", username: "dee" }
+        { id: "dee", name: "Dee", username: "dee" },
+        { id: "pos", name: "เคาน์เตอร์", username: "pos", role: "cashier" }
     ];
     var LAST_SLOT = {
         haircut: "19:00",
@@ -127,18 +128,21 @@
         var all = readQueue().filter(function (row) {
             return !barberId || row.barber_id === barberId;
         });
+        var dayRows = all.filter(function (row) { return row.date === date; });
+        var weekRows = all.filter(function (row) { return row.date >= week.from && row.date <= week.to; });
+        var monthRows = all.filter(function (row) { return row.date >= month.from && row.date <= month.to; });
         return {
             date: date,
-            day: Object.assign({ date: date }, summarize(all.filter(function (row) { return row.date === date; }))),
+            day: Object.assign({ date: date }, summarize(dayRows), { sources: sourceSplit(dayRows) }),
             week: Object.assign(
                 { from: week.from, to: week.to },
-                summarize(all.filter(function (row) { return row.date >= week.from && row.date <= week.to; })),
-                { series: daySeries(barberId, week.from, week.to) }
+                summarize(weekRows),
+                { series: daySeries(barberId, week.from, week.to), sources: sourceSplit(weekRows) }
             ),
             month: Object.assign(
                 { key: month.key, from: month.from, to: month.to },
-                summarize(all.filter(function (row) { return row.date >= month.from && row.date <= month.to; })),
-                { series: daySeries(barberId, month.from, month.to) }
+                summarize(monthRows),
+                { series: daySeries(barberId, month.from, month.to), sources: sourceSplit(monthRows) }
             )
         };
     }
@@ -168,7 +172,7 @@
                 id: row.id,
                 name: row.name,
                 username: row.username,
-                role: row.id === "rim" ? "owner" : "barber",
+                role: row.id === "rim" ? "owner" : (row.role || "barber"),
                 active: true,
                 password: DEFAULT_PASSWORD
             };
@@ -224,13 +228,36 @@
     function extrasList(row) {
         var list = Array.isArray(row && row.extras) ? row.extras : [];
         var seen = {};
-        return list.filter(function (item) {
+        var extras = [];
+        list.forEach(function (item) {
+            if (item && typeof item === "object") {
+                var amount = Math.round(Number(item.amount));
+                if (amount >= 1 && amount <= 50000) {
+                    extras.push({ type: "other", amount: amount });
+                }
+                return;
+            }
             if (!PRICES[item] || item === row.service || seen[item]) {
-                return false;
+                return;
             }
             seen[item] = true;
-            return true;
+            extras.push(item);
         });
+        return extras;
+    }
+
+    function extraAmount(item) {
+        if (item && typeof item === "object") {
+            return Number(item.amount) || 0;
+        }
+        return PRICES[item] || 0;
+    }
+
+    function extraLabel(item) {
+        if (item && typeof item === "object") {
+            return "อื่นๆ " + extraAmount(item);
+        }
+        return item;
     }
 
     function serviceSlots(service) {
@@ -239,6 +266,9 @@
 
     function extrasSlotCount(extras) {
         return (extras || []).reduce(function (sum, item) {
+            if (item && typeof item === "object") {
+                return sum;
+            }
             return sum + serviceSlots(item);
         }, 0);
     }
@@ -297,7 +327,7 @@
     function bookingAmount(row) {
         var total = PRICES[row.service] || 0;
         extrasList(row).forEach(function (item) {
-            total += PRICES[item] || 0;
+            total += extraAmount(item);
         });
         return total;
     }
@@ -306,7 +336,7 @@
         var extras = extrasList(row);
         var extraTotal = 0;
         extras.forEach(function (item) {
-            extraTotal += PRICES[item] || 0;
+            extraTotal += extraAmount(item);
         });
         var slots = serviceSlots(row.service) + extrasSlotCount(extras);
         return Object.assign({}, row, {
@@ -336,6 +366,25 @@
             remaining: remaining.length,
             cancelled: rows.filter(function (row) { return row.status === "cancelled"; }).length,
             revenue: revenue
+        };
+    }
+
+    function isWalkin(row) {
+        return row.note === "walk-in" || row.note === "Walk in" || row.phone === "walkin" || row.customer_name === "วอล์กอิน";
+    }
+
+    function sourceSplit(rows) {
+        var done = rows.filter(function (row) { return row.status === "done"; });
+        var shop = done.filter(isWalkin);
+        var online = done.filter(function (row) { return !isWalkin(row); });
+        function money(list) {
+            var sum = 0;
+            list.forEach(function (row) { sum += bookingAmount(row); });
+            return sum;
+        }
+        return {
+            shop: { done: shop.length, revenue: money(shop) },
+            online: { done: online.length, revenue: money(online) }
         };
     }
 
@@ -369,7 +418,7 @@
             month: Object.assign({ key: key }, summarize(readQueue().filter(function (row) {
                 return inMonth(row.date, key);
             }))),
-            barbers: readStaff().map(function (barber) {
+            barbers: readStaff().filter(function (barber) { return barber.role !== "cashier"; }).map(function (barber) {
                 return {
                     id: barber.id,
                     name: barber.name,
@@ -744,7 +793,8 @@
                 totals[row.barber_id].done += 1;
                 totals[row.barber_id].revenue += bookingAmount(row);
             });
-            var summaryXml = readStaff().map(function (row) {
+            var chairs = readStaff().filter(function (row) { return row.role !== "cashier"; });
+            var summaryXml = chairs.map(function (row) {
                 var total = totals[row.id] || { done: 0, revenue: 0 };
                 return "<Row>" + cell(row.name) + cell(row.username) + cell(total.done, true) + cell(total.revenue, true) + cell("") + "</Row>";
             }).join("");
@@ -755,20 +805,26 @@
                 }
                 grouped[row.barber_id].push(row);
             });
-            var barberSheets = readStaff().map(function (barber) {
+            var shopDone = details.filter(isWalkin);
+            var onlineDone = details.filter(function (row) { return !isWalkin(row); });
+            var shopRev = shopDone.reduce(function (sum, row) { return sum + bookingAmount(row); }, 0);
+            var onlineRev = onlineDone.reduce(function (sum, row) { return sum + bookingAmount(row); }, 0);
+            var barberSheets = chairs.map(function (barber) {
                 var rows = grouped[barber.id] || [];
-                var body = "<Row>" + cell("วันที่") + cell("เวลา") + cell("ลูกค้า") + cell("เบอร์") + cell("บริการ") + cell("ของเพิ่ม") + cell("ยอด (บาท)") + cell("สถานะ") + "</Row>";
+                var body = "<Row>" + cell("วันที่") + cell("เวลา") + cell("ลูกค้า") + cell("เบอร์") + cell("บริการ") + cell("ของเพิ่ม") + cell("ยอด (บาท)") + cell("ช่องทาง") + cell("สถานะ") + "</Row>";
                 rows.forEach(function (row) {
-                    var walkin = row.note === "walk-in" || row.note === "Walk in" || row.phone === "walkin" || row.customer_name === "วอล์กอิน";
+                    var walkin = isWalkin(row);
                     body += "<Row>" +
                         cell(row.date) + cell(row.time) +
                         cell(walkin ? "Walk in" : row.customer_name) + cell(walkin ? "" : row.phone) + cell(labels[row.service] || row.service) +
-                        cell((row.extras || []).map(function (item) { return labels[item] || item; }).join(", ")) +
-                        cell(row.amount, true) + cell(walkin ? "Walk in" : (row.note || "")) +
+                        cell((row.extras || []).map(function (item) {
+                            return extraLabel(item) !== item ? extraLabel(item) : (labels[item] || item);
+                        }).join(", ")) +
+                        cell(row.amount, true) + cell(walkin ? "หน้าร้าน" : "ออนไลน์") + cell(walkin ? "Walk in" : (row.note || "")) +
                         "</Row>";
                 });
                 var revenue = rows.reduce(function (sum, row) { return sum + bookingAmount(row); }, 0);
-                body += "<Row>" + cell("รวม " + barber.name) + cell("") + cell("") + cell("") + cell("") + cell("") + cell(revenue, true) + cell(rows.length + " คน") + "</Row>";
+                body += "<Row>" + cell("รวม " + barber.name) + cell("") + cell("") + cell("") + cell("") + cell("") + cell(revenue, true) + cell("") + cell(rows.length + " คน") + "</Row>";
                 return "<Worksheet ss:Name=\"" + esc(barber.name) + "\"><Table>" + body + "</Table></Worksheet>";
             }).join("");
             var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
@@ -777,6 +833,8 @@
                 "<Worksheet ss:Name=\"สรุปจ่ายเงินเดือน\"><Table>" +
                 "<Row>" + cell("ช่าง") + cell("ชื่อเข้าสู่ระบบ") + cell("จำนวนหัว") + cell("ยอดร้าน (บาท)") + cell("ยอดจ่ายช่าง (กรอกเอง)") + "</Row>" +
                 summaryXml +
+                "<Row>" + cell("หน้าร้าน") + cell("วอล์กอิน POS") + cell(shopDone.length, true) + cell(shopRev, true) + cell("") + "</Row>" +
+                "<Row>" + cell("จองออนไลน์") + cell("จองผ่านเว็บ") + cell(onlineDone.length, true) + cell(onlineRev, true) + cell("") + "</Row>" +
                 "</Table></Worksheet>" +
                 barberSheets +
                 "</Workbook>";
@@ -806,7 +864,7 @@
                 month: mine.month,
                 shop: owner
                     ? Object.assign(incomeFor(null, date), {
-                        barbers: readStaff().map(function (row) {
+                        barbers: readStaff().filter(function (row) { return row.role !== "cashier"; }).map(function (row) {
                             return Object.assign({
                                 id: row.id,
                                 name: row.name,
@@ -852,7 +910,7 @@
                 }
                 var extras = extrasList(row);
                 if (Array.isArray(payload.extras)) {
-                    extras = payload.extras;
+                    extras = extrasList({ extras: payload.extras, service: row.service });
                 }
                 if (payload.add_extra) {
                     extras = extras.concat(String(payload.add_extra));
@@ -881,11 +939,12 @@
                 return nodeFetch("/api/barber/pos?date=" + encodeURIComponent(date));
             }
             var me = await Store.me();
-            if (me.role !== "owner" && me.id !== "rim") {
-                var denied = new Error("owner_required");
+            if (me.role !== "cashier" && me.id !== "pos") {
+                var denied = new Error("pos_required");
                 denied.status = 403;
                 throw denied;
             }
+            var chairs = readStaff().filter(function (row) { return row.role !== "cashier" && row.active !== false; });
             var rows = readQueue().filter(function (row) {
                 return row.date === date && row.status !== "cancelled";
             }).map(decorateBooking).sort(function (a, b) {
@@ -894,7 +953,7 @@
             return {
                 barber: me,
                 date: date,
-                barbers: readStaff(),
+                barbers: chairs,
                 open: rows.filter(function (row) { return row.status === "pending" || row.status === "confirmed"; }),
                 paid: rows.filter(function (row) { return row.status === "done"; })
             };
@@ -908,8 +967,8 @@
                 });
             }
             var me = await Store.me();
-            if (me.role !== "owner" && me.id !== "rim") {
-                var deniedPay = new Error("owner_required");
+            if (me.role !== "cashier" && me.id !== "pos") {
+                var deniedPay = new Error("pos_required");
                 deniedPay.status = 403;
                 throw deniedPay;
             }
@@ -920,7 +979,7 @@
                 }
                 var extras = extrasList(row);
                 if (Array.isArray(payload.extras)) {
-                    extras = payload.extras;
+                    extras = extrasList({ extras: payload.extras, service: row.service });
                 }
                 row.extras = extras;
                 row.status = "done";
@@ -946,10 +1005,17 @@
                 });
             }
             var me = await Store.me();
-            if (me.role !== "owner" && me.id !== "rim") {
-                var deniedWalkin = new Error("owner_required");
+            if (me.role !== "cashier" && me.id !== "pos") {
+                var deniedWalkin = new Error("pos_required");
                 deniedWalkin.status = 403;
                 throw deniedWalkin;
+            }
+            var chairs = readStaff().filter(function (row) {
+                return row.role !== "cashier" && row.active !== false;
+            });
+            var barberId = payload.barber_id;
+            if (!chairs.some(function (row) { return row.id === barberId; })) {
+                barberId = chairs[0] ? chairs[0].id : "";
             }
             var booking = {
                 id: Date.now(),
@@ -957,7 +1023,7 @@
                 phone: payload.phone || "walkin",
                 service: payload.service,
                 extras: payload.extras || [],
-                barber_id: payload.barber_id || me.id,
+                barber_id: barberId,
                 date: bangkokNow().date,
                 time: bangkokNow().time,
                 note: "Walk in",
@@ -1100,7 +1166,9 @@
                 var data = await nodeFetch("/api/barbers");
                 return data.barbers || [];
             }
-            return activeStaff().map(function (row) {
+            return activeStaff().filter(function (row) {
+                return row.role !== "cashier";
+            }).map(function (row) {
                 return { id: row.id, name: row.name };
             });
         },
@@ -1152,12 +1220,21 @@
                 id: username,
                 name: name,
                 username: username,
-                role: "barber",
+                role: payload.role === "cashier" ? "cashier" : "barber",
                 active: true,
                 password: password
             });
             writeStaff(rows);
-            return { ok: true, barber: { id: username, name: name, username: username, role: "barber", active: true } };
+            return {
+                ok: true,
+                barber: {
+                    id: username,
+                    name: name,
+                    username: username,
+                    role: payload.role === "cashier" ? "cashier" : "barber",
+                    active: true
+                }
+            };
         },
         updateStaff: async function (id, payload) {
             if (await usingNode()) {
@@ -1256,11 +1333,7 @@
                     if (!window.EventSource) {
                         return;
                     }
-                    var liveSession = getSession();
                     var eventsUrl = "/api/barber/events";
-                    if (liveSession && liveSession.token) {
-                        eventsUrl += "?token=" + encodeURIComponent(liveSession.token);
-                    }
                     var source = new EventSource(eventsUrl);
                     source.onmessage = function (event) {
                         try {

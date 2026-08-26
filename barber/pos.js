@@ -52,6 +52,58 @@
         return "฿" + Number(value || 0).toLocaleString("th-TH");
     }
 
+    function bahtPlain(value) {
+        return Number(value || 0).toLocaleString("th-TH");
+    }
+
+    function esc(text) {
+        return String(text == null ? "" : text).replace(/[&<>"]/g, function (ch) {
+            return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch];
+        });
+    }
+
+    function thaiWhen(date, time) {
+        var parts = String(date || "").split("-");
+        var day = parts.length === 3 ? parts[2] + "/" + parts[1] + "/" + parts[0] : (date || "");
+        return day + (time ? " " + time : "");
+    }
+
+    function isWalkinRow(row) {
+        return row.phone === "walkin" || row.note === "Walk in" || row.note === "walk-in" || row.customer_name === "วอล์กอิน";
+    }
+
+    function extraPrice(item) {
+        if (item && typeof item === "object") {
+            return Number(item.amount) || 0;
+        }
+        return PRICES[item] || 0;
+    }
+
+    function extraName(item) {
+        if (item && typeof item === "object") {
+            return "อื่นๆ";
+        }
+        return SERVICES[item] || item;
+    }
+
+    function isOtherExtra(item) {
+        return Boolean(item && typeof item === "object");
+    }
+
+    function receiptItems(row) {
+        var items = [{
+            name: SERVICES[row.service] || row.service,
+            price: PRICES[row.service] || 0
+        }];
+        (row.extras || []).forEach(function (item) {
+            items.push({
+                name: extraName(item),
+                price: extraPrice(item)
+            });
+        });
+        return items;
+    }
+
     function showToast(message) {
         toastEl.textContent = message;
         toastEl.classList.remove("d-none");
@@ -63,12 +115,16 @@
 
     function totalFor(service, extraIds) {
         return (PRICES[service] || 0) + (extraIds || []).reduce(function (sum, item) {
-            return sum + (PRICES[item] || 0);
+            return sum + extraPrice(item);
         }, 0);
     }
 
-    function isOwner(barber) {
-        return barber && (barber.role === "owner" || barber.id === "rim" || barber.username === "rim");
+    function isCashier(barber) {
+        return barber && (barber.role === "cashier" || barber.id === "pos" || barber.username === "pos");
+    }
+
+    function isPosUser(barber) {
+        return isCashier(barber);
     }
 
     function ticketCard(row, paid) {
@@ -128,18 +184,68 @@
             });
             wrap.appendChild(btn);
         });
+        var otherRow = document.createElement("div");
+        otherRow.className = "pos-other";
+        var input = document.createElement("input");
+        input.type = "number";
+        input.min = "1";
+        input.step = "1";
+        input.inputMode = "numeric";
+        input.placeholder = "ยอดอื่นๆ";
+        input.className = "form-control pos-input pos-other-input";
+        input.setAttribute("aria-label", "ยอดอื่นๆ");
+        var add = document.createElement("button");
+        add.type = "button";
+        add.className = "btn btn-primary pos-other-add";
+        add.textContent = "+ อื่นๆ";
+        add.addEventListener("click", function () {
+            var n = Math.round(Number(input.value));
+            if (!(n >= 1 && n <= 50000)) {
+                showToast("ใส่ยอดอื่นๆ เป็นตัวเลข");
+                return;
+            }
+            extras = extras.concat({ type: "other", amount: n });
+            renderCheckout();
+        });
+        input.addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                add.click();
+            }
+        });
+        otherRow.appendChild(input);
+        otherRow.appendChild(add);
+        wrap.appendChild(otherRow);
+        extras.filter(isOtherExtra).forEach(function (item) {
+            var chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "pos-chip is-on";
+            chip.textContent = "✓ อื่นๆ " + baht(item.amount);
+            chip.addEventListener("click", function () {
+                var removed = false;
+                extras = extras.filter(function (extra) {
+                    if (!removed && extra === item) {
+                        removed = true;
+                        return false;
+                    }
+                    return true;
+                });
+                renderCheckout();
+            });
+            wrap.appendChild(chip);
+        });
     }
 
-    function payButtons(wrap, onPay) {
+    function payButtons(wrap, total, onPay) {
         var cash = document.createElement("button");
         cash.type = "button";
         cash.className = "btn btn-primary pos-pay";
-        cash.textContent = "รับเงินสด " + baht(onPay.total);
+        cash.textContent = "รับเงินสด " + baht(total);
         cash.addEventListener("click", function () { onPay("cash"); });
         var transfer = document.createElement("button");
         transfer.type = "button";
         transfer.className = "btn btn-outline-light pos-pay";
-        transfer.textContent = "โอน / QR " + baht(onPay.total);
+        transfer.textContent = "โอน / QR " + baht(total);
         transfer.addEventListener("click", function () { onPay("transfer"); });
         wrap.appendChild(cash);
         wrap.appendChild(transfer);
@@ -155,7 +261,7 @@
             var walk = document.createElement("div");
             walk.innerHTML = "<h2>วอล์กอิน</h2>";
             checkoutEl.appendChild(walk);
-            if (isOwner(latest.barber) && latest.barbers.length > 1) {
+            if (latest.barbers.length > 0) {
                 var barberLabel = document.createElement("label");
                 barberLabel.textContent = "ช่าง";
                 var barberSel = document.createElement("select");
@@ -204,7 +310,7 @@
             checkoutEl.appendChild(sum);
             var actions = document.createElement("div");
             actions.className = "pos-pay-row";
-            payButtons(actions, function (method) {
+            payButtons(actions, totalFor(walkin.service, extras), function (method) {
                 submitWalkin(method);
             });
             checkoutEl.appendChild(actions);
@@ -253,7 +359,7 @@
         checkoutEl.appendChild(sum);
         var actions = document.createElement("div");
         actions.className = "pos-pay-row";
-        payButtons(actions, function (method) {
+        payButtons(actions, totalFor(row.service, extras), function (method) {
             submitPay(row.id, method);
         });
         checkoutEl.appendChild(actions);
@@ -299,7 +405,7 @@
             });
             showToast("รับเงินวอล์กอินแล้ว");
             showReceipt(data.booking);
-            walkin = { service: "haircut", barber_id: latest.barber.id };
+            walkin = { service: "haircut", barber_id: (latest.barbers[0] && latest.barbers[0].id) || "" };
             extras = [];
             mode = "idle";
             selected = null;
@@ -310,27 +416,44 @@
     }
 
     function showReceipt(row) {
-        var extraText = (row.extras || []).map(function (item) {
-            return SERVICES[item] || item;
-        }).join(" + ");
-        var lines = [
-            SERVICES[row.service] || row.service,
-            extraText ? "+ " + extraText : ""
-        ].filter(Boolean);
+        var items = receiptItems(row);
+        var walkinRow = isWalkinRow(row);
+        var customer = walkinRow ? "วอล์กอิน" : (row.customer_name || "-");
+        var phone = walkinRow ? "-" : (row.phone || "-");
+        var rowsHtml = items.map(function (item) {
+            return "<tr><td>" + esc(item.name) + "</td><td>1</td><td>" + bahtPlain(item.price) + "</td></tr>";
+        }).join("");
         receiptEl.className = "pos-receipt";
         receiptEl.innerHTML =
             "<div class=\"pos-receipt-card\">" +
-            "<p class=\"staff-kicker\">STREETMAN BARBER PHUKET</p>" +
-            "<h2>ใบเสร็จ</h2>" +
-            "<p>" + (row.customer_name || "-") + "</p>" +
-            "<p class=\"queue-meta\">" + (row.phone && row.phone !== "walkin" ? row.phone : "วอล์กอิน") + "</p>" +
-            "<p>" + (row.date || "") + " · " + (row.time || "") + "</p>" +
-            "<p>" + (row.barber_name || "") + "</p>" +
-            "<p>" + lines.join("<br>") + "</p>" +
-            "<p class=\"pos-total\">" + baht(row.amount) + "</p>" +
-            "<p>" + (PAY[row.payment_method] || "") + "</p>" +
+            "<div class=\"pos-slip\">" +
+            "<img class=\"pos-slip-logo\" src=\"../img/favicon-192.png\" alt=\"StreetMan Barber\">" +
+            "<p class=\"pos-slip-shop\">STREETMAN BARBER PHUKET</p>" +
+            "<h2>ใบเสร็จรับเงิน</h2>" +
+            "<p class=\"pos-slip-info\">19/82 หมู่ 2 ต.วิชิต อ.เมือง จ.ภูเก็ต 83000</p>" +
+            "<p class=\"pos-slip-info\">โทร 062-525-8941</p>" +
+            "<div class=\"pos-slip-rule\"></div>" +
+            "<p>เลขที่ SM-" + esc(row.id) + "</p>" +
+            "<p>วันที่ " + esc(thaiWhen(row.date, row.time)) + "</p>" +
+            "<p>ช่าง " + esc(row.barber_name || "") + "</p>" +
+            "<p>ลูกค้า " + esc(customer) + "</p>" +
+            (walkinRow ? "" : ("<p>เบอร์ " + esc(phone) + "</p>")) +
+            "<table class=\"pos-slip-table\">" +
+            "<thead><tr><th>รายการ</th><th>จำนวน</th><th>บาท</th></tr></thead>" +
+            "<tbody>" + rowsHtml + "</tbody>" +
+            "</table>" +
+            "<div class=\"pos-slip-box\">" + esc(PAY[row.payment_method] || "ชำระแล้ว") + " " + bahtPlain(row.amount) + " บาท</div>" +
+            "<img class=\"pos-slip-qr\" src=\"../img/qr-promptpay.png\" alt=\"QR โอน\">" +
+            "<p class=\"pos-slip-info\">สแกนโอน PromptPay</p>" +
+            "<p class=\"pos-slip-info\">เปิดทุกวัน 11:00–20:00</p>" +
+            "<p class=\"pos-slip-info\">streeetmanbarberphuket.shop</p>" +
+            "<p class=\"pos-slip-sign\">ลงชื่อ................................</p>" +
+            "<p class=\"pos-slip-thanks\">ขอบคุณที่ใช้บริการ</p>" +
+            "</div>" +
+            "<div class=\"pos-slip-actions\">" +
             "<button type=\"button\" class=\"btn btn-primary pos-pay\" id=\"receipt-print\">พิมพ์ / เซฟ</button>" +
             "<button type=\"button\" class=\"btn btn-outline-light pos-pay\" id=\"receipt-close\">ปิด</button>" +
+            "</div>" +
             "</div>";
         document.getElementById("receipt-close").addEventListener("click", function () {
             receiptEl.className = "pos-receipt d-none";
@@ -347,9 +470,10 @@
     async function load() {
         var data = await window.StreetManStore.pos(todayISO());
         latest = data;
-        document.getElementById("barber-name").textContent = "POS ของ " + data.barber.name;
-        if (!walkin.barber_id) {
-            walkin.barber_id = data.barber.id;
+        document.getElementById("barber-name").textContent = "POS เคาน์เตอร์";
+        var chairs = data.barbers || [];
+        if (!walkin.barber_id || !chairs.some(function (row) { return row.id === walkin.barber_id; })) {
+            walkin.barber_id = chairs[0] ? chairs[0].id : "";
         }
         renderLists();
         renderCheckout();
@@ -357,9 +481,17 @@
 
     async function boot() {
         var me = await window.StreetManStore.me();
-        if (!isOwner(me)) {
+        if (!isPosUser(me)) {
             window.location.replace("dashboard.html");
             return;
+        }
+        var dashLink = document.getElementById("dash-link");
+        var incomeLink = document.getElementById("income-link");
+        if (dashLink) {
+            dashLink.classList.add("d-none");
+        }
+        if (incomeLink) {
+            incomeLink.classList.add("d-none");
         }
         document.getElementById("refresh-btn").addEventListener("click", function () {
             load();

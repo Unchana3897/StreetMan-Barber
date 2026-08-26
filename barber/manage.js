@@ -47,6 +47,7 @@
         wrap.querySelector(".queue-meta").textContent =
             "เข้าสู่ระบบ: " + barber.username +
             (barber.role === "owner" ? " · เจ้าของร้าน" : "") +
+            (barber.role === "cashier" ? " · เคาน์เตอร์คิดเงิน" : "") +
             (barber.active ? "" : " · ปิดงานอยู่");
         wrap.querySelector("[data-field='name']").value = barber.name;
 
@@ -60,7 +61,7 @@
         });
         actions.appendChild(save);
 
-        if (barber.role !== "owner") {
+        if (barber.role !== "owner" && barber.role !== "cashier") {
             var toggle = document.createElement("button");
             toggle.type = "button";
             toggle.className = "btn btn-outline-light";
@@ -140,6 +141,24 @@
             });
             e.target.reset();
             showToast("เพิ่มช่างแล้ว");
+            load();
+        } catch (err) {
+            showToast(errorText(err));
+        }
+    });
+
+    document.getElementById("add-pos-form").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        try {
+            await window.StreetManStore.createStaff({
+                name: document.getElementById("pos-name").value,
+                username: document.getElementById("pos-username").value,
+                password: document.getElementById("pos-password").value,
+                role: "cashier"
+            });
+            e.target.reset();
+            document.getElementById("pos-name").value = "เคาน์เตอร์";
+            showToast("สร้างบัญชี POS แล้ว");
             load();
         } catch (err) {
             showToast(errorText(err));
