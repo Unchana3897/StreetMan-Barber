@@ -215,9 +215,39 @@ function incomeFor(barberId, date) {
 
 function listBarbers(activeOnly) {
     const sql = activeOnly
-        ? "SELECT id, name, username, role, active FROM barbers WHERE active = 1 ORDER BY CASE WHEN role = 'owner' THEN 0 WHEN role = 'cashier' THEN 2 ELSE 1 END, name"
-        : "SELECT id, name, username, role, active FROM barbers ORDER BY CASE WHEN role = 'owner' THEN 0 WHEN role = 'cashier' THEN 2 ELSE 1 END, name";
+        ? "SELECT id, name, username, role, active, day_off FROM barbers WHERE active = 1 ORDER BY CASE WHEN role = 'owner' THEN 0 WHEN role = 'cashier' THEN 2 ELSE 1 END, name"
+        : "SELECT id, name, username, role, active, day_off FROM barbers ORDER BY CASE WHEN role = 'owner' THEN 0 WHEN role = 'cashier' THEN 2 ELSE 1 END, name";
     return db.prepare(sql).all();
+}
+
+function weekdayOf(iso) {
+    const [year, month, day] = String(iso || "").split("-").map(Number);
+    if (!year || !month || !day) {
+        return -1;
+    }
+    return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+function parseDayOffInput(value) {
+    if (value === null || value === undefined || value === "" || value === false || value === -1 || value === "-1") {
+        return null;
+    }
+    const n = Number(value);
+    if (n === 0 || n === 1 || n === 2 || n === 3 || n === 4 || n === 5 || n === 6) {
+        return n;
+    }
+    return undefined;
+}
+
+function dayOffOf(row) {
+    const parsed = parseDayOffInput(row && row.day_off);
+    return parsed === undefined ? null : parsed;
+}
+
+function isBarberOff(barberId, date) {
+    const row = db.prepare("SELECT day_off FROM barbers WHERE id = ?").get(barberId);
+    const off = dayOffOf(row);
+    return off != null && off === weekdayOf(date);
 }
 
 function listChairs(activeOnly) {
@@ -234,7 +264,8 @@ function publicBarber(row) {
         name: row.name,
         username: row.username,
         role: row.role || "barber",
-        active: Number(row.active) === 1
+        active: Number(row.active) === 1,
+        day_off: dayOffOf(row)
     };
 }
 
@@ -345,6 +376,22 @@ function occupiedSet(barberId, date, exceptId) {
     return taken;
 }
 
+function blockedSet(barberId, date) {
+    return new Set(
+        db.prepare("SELECT slot FROM barber_blocks WHERE barber_id = ? AND date = ?")
+            .all(barberId, date)
+            .map((row) => row.slot)
+    );
+}
+
+function hoursFor(barberId, date) {
+    return {
+        date,
+        slots: TIME_SLOTS.slice(),
+        blocked: Array.from(blockedSet(barberId, date)).sort()
+    };
+}
+
 function canPlace(barberId, date, time, service, extras, exceptId) {
     const count = serviceSlots(service) + extrasSlotCount(extras);
     const range = occupyRange(time, count, Boolean(exceptId));
@@ -353,6 +400,10 @@ function canPlace(barberId, date, time, service, extras, exceptId) {
     }
     const occupied = occupiedSet(barberId, date, exceptId);
     if (range.some((slot) => occupied.has(slot))) {
+        return { error: exceptId ? "extra_overlap" : "slot_taken" };
+    }
+    const blocked = blockedSet(barberId, date);
+    if (range.some((slot) => blocked.has(slot))) {
         return { error: exceptId ? "extra_overlap" : "slot_taken" };
     }
     return { ok: true, range, count };
@@ -683,7 +734,7 @@ function readSession(req) {
         return null;
     }
     const row = db.prepare(`
-        SELECT s.token, s.barber_id, s.expires_at, b.name, b.username, b.role, b.active
+        SELECT s.token, s.barber_id, s.expires_at, b.name, b.username, b.role, b.active, b.day_off
         FROM sessions s
         JOIN barbers b ON b.id = s.barber_id
         WHERE s.token = ? AND s.expires_at > ?
@@ -822,6 +873,9 @@ function pickBarber(barberId, date, time, service) {
         if (!ids.includes(barberId)) {
             return null;
         }
+        if (isBarberOff(barberId, date)) {
+            return { error: "barber_off" };
+        }
         const place = canPlace(barberId, date, time, service, []);
         if (place.error) {
             return { error: place.error };
@@ -829,6 +883,9 @@ function pickBarber(barberId, date, time, service) {
         return { barberId };
     }
     for (const id of ids) {
+        if (isBarberOff(id, date)) {
+            continue;
+        }
         const place = canPlace(id, date, time, service, []);
         if (!place.error) {
             return { barberId: id };
@@ -860,7 +917,7 @@ app.get("/api/slots", (req, res) => {
     }
     const possible = slotsFor(service).filter((slot) => !isPastSlot(date, slot));
     const ids = activeIds();
-    const open = (id, slot) => !canPlace(id, date, slot, service, []).error;
+    const open = (id, slot) => !isBarberOff(id, date) && !canPlace(id, date, slot, service, []).error;
     const slots = barberId !== "any" && ids.includes(barberId)
         ? possible.filter((slot) => open(barberId, slot))
         : possible.filter((slot) => ids.some((id) => open(id, slot)));
@@ -1032,7 +1089,7 @@ app.post("/api/login", (req, res) => {
     res.json({
         ok: true,
         token: token,
-        barber: { id: barber.id, name: barber.name, username: barber.username, role: barber.role || "barber", token: token }
+        barber: { id: barber.id, name: barber.name, username: barber.username, role: barber.role || "barber", day_off: dayOffOf(barber), token: token }
     });
 });
 
@@ -1052,6 +1109,7 @@ app.get("/api/me", requireBarber, (req, res) => {
             name: req.barber.name,
             username: req.barber.username,
             role: req.barber.role || "barber",
+            day_off: dayOffOf(req.barber),
             token: req.barber.token
         }
     });
@@ -1059,7 +1117,7 @@ app.get("/api/me", requireBarber, (req, res) => {
 
 app.get("/api/barbers", (req, res) => {
     res.json({
-        barbers: listChairs(true).map((row) => ({ id: row.id, name: row.name }))
+        barbers: listChairs(true).map((row) => ({ id: row.id, name: row.name, day_off: dayOffOf(row) }))
     });
 });
 
@@ -1123,7 +1181,8 @@ app.get("/api/barber/dashboard", requireBarber, requireChair, (req, res) => {
             id: barberId,
             name: req.barber.name,
             username: req.barber.username,
-            role: req.barber.role || "barber"
+            role: req.barber.role || "barber",
+            day_off: dayOffOf(req.barber)
         },
         date,
         now,
@@ -1133,7 +1192,9 @@ app.get("/api/barber/dashboard", requireBarber, requireChair, (req, res) => {
         upcoming,
         summary: periodSummary(barberId, date),
         shop: req.barber.role === "owner" ? shopSummary(date) : null,
-        shop_status: shopState()
+        shop_status: shopState(),
+        hours: hoursFor(barberId, date),
+        day_off: dayOffOf(req.barber)
     });
 });
 
@@ -1333,6 +1394,33 @@ function updateShop(req, res) {
 
 app.patch("/api/owner/shop", requireBarber, requireOwner, updateShop);
 app.post("/api/owner/shop", requireBarber, requireOwner, updateShop);
+
+app.put("/api/barber/hours", requireBarber, requireChair, (req, res) => {
+    const date = String(req.body.date || todayISO());
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: "bad_date" });
+    }
+    const blocked = Array.isArray(req.body.blocked)
+        ? [...new Set(req.body.blocked.map((slot) => String(slot)).filter((slot) => TIME_SLOTS.includes(slot)))]
+        : [];
+    const barberId = req.barber.barber_id;
+    const save = db.transaction(() => {
+        db.prepare("DELETE FROM barber_blocks WHERE barber_id = ? AND date = ?").run(barberId, date);
+        const insert = db.prepare("INSERT INTO barber_blocks (barber_id, date, slot) VALUES (?, ?, ?)");
+        blocked.forEach((slot) => insert.run(barberId, date, slot));
+    });
+    save();
+    res.json({ ok: true, hours: hoursFor(barberId, date) });
+});
+
+app.put("/api/barber/day-off", requireBarber, requireChair, (req, res) => {
+    const parsed = parseDayOffInput(req.body.day_off);
+    if (parsed === undefined) {
+        return res.status(400).json({ error: "bad_day_off" });
+    }
+    db.prepare("UPDATE barbers SET day_off = ? WHERE id = ?").run(parsed, req.barber.barber_id);
+    res.json({ ok: true, day_off: parsed });
+});
 
 app.patch("/api/barber/bookings/:id", requireBarber, requireChair, (req, res) => {
     const id = Number(req.params.id);
@@ -1538,7 +1626,7 @@ app.post("/api/owner/barbers", requireBarber, requireOwner, (req, res) => {
         INSERT INTO barbers (id, name, username, password_hash, role, active)
         VALUES (?, ?, ?, ?, ?, 1)
     `).run(username, name, username, bcrypt.hashSync(password, 10), role);
-    const barber = db.prepare("SELECT id, name, username, role, active FROM barbers WHERE id = ?").get(username);
+    const barber = db.prepare("SELECT id, name, username, role, active, day_off FROM barbers WHERE id = ?").get(username);
     res.status(201).json({ ok: true, barber: publicBarber(barber) });
 });
 
@@ -1559,21 +1647,33 @@ app.patch("/api/owner/barbers/:id", requireBarber, requireOwner, (req, res) => {
     if (barber.role === "owner" || barber.role === "cashier") {
         active = 1;
     }
+    let dayOff = dayOffOf(barber);
+    if (Object.prototype.hasOwnProperty.call(req.body, "day_off")) {
+        if (barber.role === "cashier") {
+            dayOff = null;
+        } else {
+            const parsed = parseDayOffInput(req.body.day_off);
+            if (parsed === undefined) {
+                return res.status(400).json({ error: "bad_day_off" });
+            }
+            dayOff = parsed;
+        }
+    }
     const password = req.body.password != null ? String(req.body.password) : "";
     if (password && password.length < 6) {
         return res.status(400).json({ error: "bad_password" });
     }
     if (password) {
-        db.prepare("UPDATE barbers SET name = ?, active = ?, password_hash = ? WHERE id = ?")
-            .run(name, active, bcrypt.hashSync(password, 10), id);
+        db.prepare("UPDATE barbers SET name = ?, active = ?, day_off = ?, password_hash = ? WHERE id = ?")
+            .run(name, active, dayOff, bcrypt.hashSync(password, 10), id);
         db.prepare("DELETE FROM sessions WHERE barber_id = ?").run(id);
     } else {
-        db.prepare("UPDATE barbers SET name = ?, active = ? WHERE id = ?").run(name, active, id);
+        db.prepare("UPDATE barbers SET name = ?, active = ?, day_off = ? WHERE id = ?").run(name, active, dayOff, id);
         if (active === 0) {
             db.prepare("DELETE FROM sessions WHERE barber_id = ?").run(id);
         }
     }
-    const updated = db.prepare("SELECT id, name, username, role, active FROM barbers WHERE id = ?").get(id);
+    const updated = db.prepare("SELECT id, name, username, role, active, day_off FROM barbers WHERE id = ?").get(id);
     res.json({ ok: true, barber: publicBarber(updated) });
 });
 

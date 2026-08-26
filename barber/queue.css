@@ -305,6 +305,76 @@
     margin: 0 0 14px;
 }
 
+.hours-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 8px;
+    margin: 12px 0 16px;
+}
+
+.hours-chip {
+    min-height: 44px;
+    border: 1px solid #2A2E3A;
+    background: #111318;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.hours-chip.is-off {
+    background: #2A1214;
+    border-color: #EB1616;
+    color: #F2B8B8;
+    text-decoration: line-through;
+}
+
+.hours-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.hours-dayoff {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+    margin: 0 0 18px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #2A2E3A;
+}
+
+.hours-dayoff-copy {
+    flex: 1 1 220px;
+}
+
+.hours-dayoff-copy label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.hours-dayoff .form-control {
+    max-width: 220px;
+    background: #111318;
+    color: #fff;
+    border-color: #2A2E3A;
+}
+
+.manage-dayoff-label {
+    display: block;
+    color: #6C7293;
+    font-size: 13px;
+    margin: 10px 0 4px;
+}
+
+.manage-row .form-control {
+    background: #111318;
+    color: #fff;
+    border-color: #2A2E3A;
+}
+
 .summary-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

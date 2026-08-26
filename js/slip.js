@@ -48,22 +48,39 @@
     }
 
     function wrapText(ctx, text, maxWidth) {
-        var words = String(text || "").split(/\s+/);
+        return wrapParagraph(ctx, text, maxWidth, 3);
+    }
+
+    function wrapParagraph(ctx, text, maxWidth, maxLines) {
+        maxLines = maxLines || 6;
         var lines = [];
-        var line = "";
-        words.forEach(function (word) {
-            var test = line ? line + " " + word : word;
-            if (ctx.measureText(test).width > maxWidth && line) {
-                lines.push(line);
-                line = word;
-            } else {
-                line = test;
+        String(text || "").split(/\n/).forEach(function (para) {
+            if (lines.length >= maxLines) {
+                return;
+            }
+            var chars = Array.from(para);
+            if (!chars.length) {
+                lines.push("");
+                return;
+            }
+            var current = "";
+            chars.forEach(function (ch) {
+                if (lines.length >= maxLines) {
+                    return;
+                }
+                var test = current + ch;
+                if (ctx.measureText(test).width > maxWidth && current) {
+                    lines.push(current);
+                    current = ch;
+                } else {
+                    current = test;
+                }
+            });
+            if (current && lines.length < maxLines) {
+                lines.push(current);
             }
         });
-        if (line) {
-            lines.push(line);
-        }
-        return lines.slice(0, 3);
+        return lines.slice(0, maxLines);
     }
 
     function row(ctx, label, value, y, width) {
@@ -116,7 +133,7 @@
         var canvas = document.createElement("canvas");
         var scale = 2;
         var width = 720;
-        var height = 1480;
+        var height = 1980;
         canvas.width = width * scale;
         canvas.height = height * scale;
         var ctx = canvas.getContext("2d");
@@ -184,11 +201,20 @@
         }
 
         ctx.fillStyle = "#191C24";
-        ctx.fillRect(48, height - 250, width - 96, 186);
+        ctx.fillRect(48, height - 620, width - 96, 556);
         ctx.fillStyle = "#EB1616";
         ctx.font = "600 24px 'Noto Sans Thai', sans-serif";
-        ctx.fillText(t("slip_show"), 72, height - 200);
+        ctx.fillText(t("slip_show"), 72, height - 570);
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = "700 22px 'Noto Sans Thai', sans-serif";
+        ctx.fillText(t("slip_wait_title"), 72, height - 528);
         ctx.fillStyle = "#C7CAD8";
+        ctx.font = "italic 18px 'Noto Sans Thai', sans-serif";
+        var noteY = height - 492;
+        wrapParagraph(ctx, t("slip_wait_note"), width - 160, 12).forEach(function (line) {
+            ctx.fillText(line, 72, noteY);
+            noteY += 26;
+        });
         ctx.font = "22px 'Noto Sans Thai', sans-serif";
         ctx.fillText("19/82 หมู่ 2 ต.วิชิต อ.เมือง จ.ภูเก็ต", 72, height - 158);
         ctx.fillText("062-525-8941  ·  11:00–20:00", 72, height - 122);

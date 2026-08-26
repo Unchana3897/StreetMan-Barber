@@ -64,6 +64,9 @@ if (!hasColumn("barbers", "role")) {
 if (!hasColumn("barbers", "active")) {
     db.exec("ALTER TABLE barbers ADD COLUMN active INTEGER NOT NULL DEFAULT 1");
 }
+if (!hasColumn("barbers", "day_off")) {
+    db.exec("ALTER TABLE barbers ADD COLUMN day_off INTEGER");
+}
 db.prepare("UPDATE barbers SET role = 'owner' WHERE id = 'rim'").run();
 
 if (!hasColumn("bookings", "extras")) {
@@ -98,5 +101,15 @@ CREATE TABLE IF NOT EXISTS shop_settings (
 `);
 db.prepare("INSERT OR IGNORE INTO shop_settings (key, value) VALUES ('closed', '0')").run();
 db.prepare("INSERT OR IGNORE INTO shop_settings (key, value) VALUES ('closed_note', '')").run();
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS barber_blocks (
+    barber_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    slot TEXT NOT NULL,
+    PRIMARY KEY (barber_id, date, slot),
+    FOREIGN KEY (barber_id) REFERENCES barbers(id)
+);
+`);
 
 module.exports = db;

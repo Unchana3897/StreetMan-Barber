@@ -456,3 +456,24 @@ input[type="date"].form-control {
     margin-bottom: 16px;
     border: 1px solid #2A2E3A;
 }
+
+.book-wait-note {
+    color: #A8ADC3;
+    font-size: 0.95rem;
+    line-height: 1.75;
+    padding: 14px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.book-wait-note strong {
+    display: block;
+    color: #fff;
+    font-style: normal;
+    margin-bottom: 8px;
+}
+
+.book-wait-note p {
+    font-style: italic;
+    margin: 0;
+}

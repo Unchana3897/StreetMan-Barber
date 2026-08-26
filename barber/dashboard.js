@@ -27,6 +27,17 @@
     };
 
     var DAYS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+    var WEEKDAY_NAMES = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
+    var WEEKDAY_OPTIONS = [
+        ["", "ยังไม่กำหนด"],
+        ["1", "จันทร์"],
+        ["2", "อังคาร"],
+        ["3", "พุธ"],
+        ["4", "พฤหัสบดี"],
+        ["5", "ศุกร์"],
+        ["6", "เสาร์"],
+        ["0", "อาทิตย์"]
+    ];
 
     var listEl = document.getElementById("queue-list");
     var emptyEl = document.getElementById("empty");
@@ -574,9 +585,120 @@
             pos.classList.add("d-none");
         }
         renderWeek(data.upcoming, data.date);
+        renderDayOff(data);
+        renderHours(data.hours);
         renderShopStatus(data);
         renderNext(data.next);
         renderList(data.bookings || []);
+    }
+
+    function weekdayOf(iso) {
+        var bits = String(iso || "").split("-").map(Number);
+        return new Date(Date.UTC(bits[0], bits[1] - 1, bits[2])).getUTCDay();
+    }
+
+    function fillDayOffSelect(select, value) {
+        if (!select) {
+            return;
+        }
+        if (select.getAttribute("data-ready") !== "1") {
+            select.innerHTML = "";
+            WEEKDAY_OPTIONS.forEach(function (pair) {
+                var opt = document.createElement("option");
+                opt.value = pair[0];
+                opt.textContent = pair[1];
+                select.appendChild(opt);
+            });
+            select.setAttribute("data-ready", "1");
+        }
+        select.value = value == null || value === "" ? "" : String(value);
+        if (select.value !== (value == null || value === "" ? "" : String(value))) {
+            select.value = "";
+        }
+    }
+
+    function renderDayOff(data) {
+        var off = data && data.day_off;
+        if (off == null && data && data.barber) {
+            off = data.barber.day_off;
+        }
+        fillDayOffSelect(document.getElementById("day-off"), off);
+        var banner = document.getElementById("day-off-banner");
+        if (!banner) {
+            return;
+        }
+        var isOff = off != null && off !== "" && Number(off) === weekdayOf(data && data.date);
+        banner.classList.toggle("d-none", !isOff);
+        if (isOff) {
+            banner.textContent = "วันที่นี้ตรงกับวันหยุดประจำสัปดาห์ของฉัน (" + WEEKDAY_NAMES[Number(off)] + ") ลูกค้าจองออนไลน์กับฉันไม่ได้";
+        }
+    }
+
+    async function saveDayOff() {
+        var select = document.getElementById("day-off");
+        var raw = select ? select.value : "";
+        var weekday = raw === "" ? null : Number(raw);
+        try {
+            await window.StreetManStore.setDayOff(weekday);
+            showToast(weekday == null ? "ล้างวันหยุดแล้ว" : "บันทึกวันหยุดวัน" + WEEKDAY_NAMES[weekday] + "แล้ว");
+            load();
+        } catch (err) {
+            showToast(err && err.status === 401 ? "เซสชันหมด ลองออกแล้วเข้าใหม่" : "บันทึกวันหยุดไม่สำเร็จ");
+        }
+    }
+
+    function renderHours(hours) {
+        var panel = document.getElementById("hours-panel");
+        var grid = document.getElementById("hours-grid");
+        if (!panel || !grid) {
+            return;
+        }
+        if (!hours || !hours.slots) {
+            panel.classList.add("d-none");
+            return;
+        }
+        panel.classList.remove("d-none");
+        var blocked = {};
+        (hours.blocked || []).forEach(function (slot) {
+            blocked[slot] = true;
+        });
+        var booked = 0;
+        (hours.blocked || []).forEach(function () { booked += 1; });
+        var copy = document.getElementById("hours-copy");
+        if (copy) {
+            copy.textContent = booked
+                ? "ปิดรับจอง " + booked + " ช่องในวันนี้ แตะช่องสว่างเพื่อเปิดอีก หรือช่องมืดเพื่อปิด"
+                : "แตะช่องเวลาเพื่อปิดรับจองในวันนี้ ช่องมืดคือไม่ว่าง ลูกค้าจองช่วงนั้นไม่ได้";
+        }
+        grid.innerHTML = "";
+        hours.slots.forEach(function (slot) {
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "hours-chip" + (blocked[slot] ? " is-off" : "");
+            btn.textContent = slot;
+            btn.setAttribute("aria-pressed", blocked[slot] ? "true" : "false");
+            btn.addEventListener("click", function () {
+                var next = (hours.blocked || []).slice();
+                var index = next.indexOf(slot);
+                if (index === -1) {
+                    next.push(slot);
+                } else {
+                    next.splice(index, 1);
+                }
+                saveHours(hours.date, next);
+            });
+            grid.appendChild(btn);
+        });
+    }
+
+    async function saveHours(date, blocked) {
+        try {
+            await window.StreetManStore.setHours(date, blocked);
+            showToast("บันทึกเวลาว่างแล้ว");
+            load();
+        } catch (err) {
+            showToast(err && err.status === 401 ? "เซสชันหมด ลองออกแล้วเข้าใหม่" : "บันทึกเวลาว่างไม่สำเร็จ");
+        }
     }
 
     function renderShopStatus(data) {
@@ -741,6 +863,21 @@
             });
         }
         document.getElementById("shop-close-btn").addEventListener("click", toggleShop);
+        document.getElementById("hours-off").addEventListener("click", function () {
+            var hours = latest && latest.hours;
+            if (!hours) {
+                return;
+            }
+            saveHours(hours.date, (hours.slots || []).slice());
+        });
+        document.getElementById("hours-on").addEventListener("click", function () {
+            var hours = latest && latest.hours;
+            if (!hours) {
+                return;
+            }
+            saveHours(hours.date, []);
+        });
+        document.getElementById("day-off-save").addEventListener("click", saveDayOff);
 
         window.StreetManStore.listen(onNewBooking, onDayReminder);
 

@@ -5,6 +5,7 @@
     var QUEUE_KEY = "sm_barber_queue";
     var STAFF_KEY = "sm_staff";
     var SHOP_KEY = "sm_shop";
+    var HOURS_KEY = "sm_barber_hours";
     var PEER_PREFIX = "streetman-phuket-";
     var DEFAULT_PASSWORD = "StreetMan2026";
     var BARBERS = [
@@ -174,7 +175,8 @@
                 username: row.username,
                 role: row.id === "rim" ? "owner" : (row.role || "barber"),
                 active: true,
-                password: DEFAULT_PASSWORD
+                password: DEFAULT_PASSWORD,
+                day_off: null
             };
         });
         extra.forEach(function (row) {
@@ -187,7 +189,8 @@
                 username: row.username || row.id,
                 role: row.id === "rim" ? "owner" : (row.role || "barber"),
                 active: row.active !== false,
-                password: row.password || DEFAULT_PASSWORD
+                password: row.password || DEFAULT_PASSWORD,
+                day_off: parseDayOff(row.day_off)
             };
         });
         return Object.keys(byId).map(function (id) {
@@ -223,6 +226,36 @@
         return readStaff().filter(function (row) {
             return row.active !== false;
         });
+    }
+
+    function chairStaff() {
+        return activeStaff().filter(function (row) {
+            return row.role !== "cashier";
+        });
+    }
+
+    function weekdayOf(iso) {
+        var bits = String(iso || "").split("-").map(Number);
+        return new Date(Date.UTC(bits[0], bits[1] - 1, bits[2])).getUTCDay();
+    }
+
+    function parseDayOff(value) {
+        if (value === null || value === undefined || value === "" || value === -1 || value === "-1") {
+            return null;
+        }
+        var n = Number(value);
+        if (n === 0 || n === 1 || n === 2 || n === 3 || n === 4 || n === 5 || n === 6) {
+            return n;
+        }
+        return null;
+    }
+
+    function isBarberOff(barberId, date) {
+        var row = readStaff().filter(function (barber) {
+            return barber.id === barberId;
+        })[0];
+        var off = parseDayOff(row && row.day_off);
+        return off != null && off === weekdayOf(date);
     }
 
     function extrasList(row) {
@@ -311,6 +344,44 @@
         return taken;
     }
 
+    function hoursKey(barberId, date) {
+        return String(barberId || "") + ":" + String(date || "");
+    }
+
+    function readHoursMap() {
+        try {
+            var data = JSON.parse(window.localStorage.getItem(HOURS_KEY) || "{}");
+            return data && typeof data === "object" ? data : {};
+        } catch (err) {
+            return {};
+        }
+    }
+
+    function blockedList(barberId, date) {
+        var rows = readHoursMap()[hoursKey(barberId, date)];
+        return Array.isArray(rows) ? rows.filter(function (slot) { return TIME_SLOTS.indexOf(slot) !== -1; }) : [];
+    }
+
+    function blockedSet(barberId, date) {
+        var taken = {};
+        blockedList(barberId, date).forEach(function (slot) {
+            taken[slot] = true;
+        });
+        return taken;
+    }
+
+    function writeHours(barberId, date, blocked) {
+        var map = readHoursMap();
+        var clean = (blocked || []).filter(function (slot) { return TIME_SLOTS.indexOf(slot) !== -1; });
+        if (clean.length) {
+            map[hoursKey(barberId, date)] = clean;
+        } else {
+            delete map[hoursKey(barberId, date)];
+        }
+        window.localStorage.setItem(HOURS_KEY, JSON.stringify(map));
+        return { date: date, slots: TIME_SLOTS.slice(), blocked: clean.slice().sort() };
+    }
+
     function canPlace(barberId, date, time, service, extras, exceptId) {
         var count = serviceSlots(service) + extrasSlotCount(extras);
         var range = occupyRange(time, count, Boolean(exceptId));
@@ -319,6 +390,10 @@
         }
         var occupied = occupiedSet(barberId, date, exceptId);
         if (range.some(function (slot) { return occupied[slot]; })) {
+            return { error: exceptId ? "extra_overlap" : "slot_taken" };
+        }
+        var blocked = blockedSet(barberId, date);
+        if (range.some(function (slot) { return blocked[slot]; })) {
             return { error: exceptId ? "extra_overlap" : "slot_taken" };
         }
         return { ok: true, range: range, count: count };
@@ -530,12 +605,15 @@
     }
 
     function pickBarber(barberId, date, time, service) {
-        var ids = activeStaff().map(function (barber) {
+        var ids = chairStaff().map(function (barber) {
             return barber.id;
         });
         if (barberId && barberId !== "any") {
             if (ids.indexOf(barberId) === -1) {
                 return { error: "slot_taken" };
+            }
+            if (isBarberOff(barberId, date)) {
+                return { error: "barber_off" };
             }
             var chosen = canPlace(barberId, date, time, service, []);
             if (chosen.error) {
@@ -544,6 +622,9 @@
             return { barberId: barberId };
         }
         for (var i = 0; i < ids.length; i += 1) {
+            if (isBarberOff(ids[i], date)) {
+                continue;
+            }
             if (!canPlace(ids[i], date, time, service, []).error) {
                 return { barberId: ids[i] };
             }
@@ -587,12 +668,17 @@
                 }).length
             });
         }
+        var staff = readStaff().filter(function (row) {
+            return row.id === barber.id;
+        })[0] || barber;
+        var dayOff = parseDayOff(staff.day_off);
         return {
             barber: {
                 id: barber.id,
                 name: barber.name,
                 username: barber.username,
-                role: barber.role || (barber.id === "rim" ? "owner" : "barber")
+                role: barber.role || (barber.id === "rim" ? "owner" : "barber"),
+                day_off: dayOff
             },
             date: date,
             now: now,
@@ -602,7 +688,13 @@
             upcoming: upcoming,
             summary: periodSummary(barber.id, date),
             shop: (barber.role === "owner" || barber.id === "rim") ? shopSummary(date) : null,
-            shop_status: readShop()
+            shop_status: readShop(),
+            hours: {
+                date: date,
+                slots: TIME_SLOTS.slice(),
+                blocked: blockedList(barber.id, date)
+            },
+            day_off: dayOff
         };
     }
 
@@ -682,7 +774,13 @@
                 error.status = 401;
                 throw error;
             }
-            setSession({ id: barber.id, name: barber.name, username: barber.username, role: barber.role || "barber" });
+            setSession({
+                id: barber.id,
+                name: barber.name,
+                username: barber.username,
+                role: barber.role || "barber",
+                day_off: parseDayOff(barber.day_off)
+            });
             return getSession();
         },
         logout: async function () {
@@ -715,6 +813,12 @@
                 error.status = 401;
                 throw error;
             }
+            var staff = readStaff().filter(function (row) {
+                return row.id === session.id;
+            })[0];
+            if (staff) {
+                session.day_off = parseDayOff(staff.day_off);
+            }
             return session;
         },
         dashboard: async function (date) {
@@ -724,6 +828,36 @@
             }
             var barber = await Store.me();
             return buildDashboard(barber, date);
+        },
+        setHours: async function (date, blocked) {
+            if (await usingNode()) {
+                return nodeFetch("/api/barber/hours", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ date: date, blocked: blocked })
+                });
+            }
+            var me = await Store.me();
+            return { ok: true, hours: writeHours(me.id, date, blocked) };
+        },
+        setDayOff: async function (weekday) {
+            var dayOff = parseDayOff(weekday);
+            if (await usingNode()) {
+                return nodeFetch("/api/barber/day-off", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ day_off: dayOff })
+                });
+            }
+            var me = await Store.me();
+            var rows = readStaff().map(function (row) {
+                if (row.id === me.id && row.role !== "cashier") {
+                    row.day_off = dayOff;
+                }
+                return row;
+            });
+            writeStaff(rows);
+            return { ok: true, day_off: dayOff };
         },
         payrollFile: async function (date, period) {
             date = date || bangkokNow().date;
@@ -1089,16 +1223,16 @@
             var possible = Store.slots(service, date);
             var slots;
             if (barber && barber !== "any") {
-                slots = possible.filter(function (slot) {
+                slots = isBarberOff(barber, date) ? [] : possible.filter(function (slot) {
                     return !canPlace(barber, date, slot, service, []).error;
                 });
             } else {
-                var ids = activeStaff().map(function (row) {
+                var ids = chairStaff().map(function (row) {
                     return row.id;
                 });
                 slots = possible.filter(function (slot) {
                     return ids.some(function (id) {
-                        return !canPlace(id, date, slot, service, []).error;
+                        return !isBarberOff(id, date) && !canPlace(id, date, slot, service, []).error;
                     });
                 });
             }
@@ -1166,10 +1300,8 @@
                 var data = await nodeFetch("/api/barbers");
                 return data.barbers || [];
             }
-            return activeStaff().filter(function (row) {
-                return row.role !== "cashier";
-            }).map(function (row) {
-                return { id: row.id, name: row.name };
+            return chairStaff().map(function (row) {
+                return { id: row.id, name: row.name, day_off: parseDayOff(row.day_off) };
             });
         },
         listStaff: async function () {
@@ -1189,7 +1321,8 @@
                     name: row.name,
                     username: row.username,
                     role: row.role,
-                    active: row.active !== false
+                    active: row.active !== false,
+                    day_off: parseDayOff(row.day_off)
                 };
             });
         },
@@ -1222,7 +1355,8 @@
                 username: username,
                 role: payload.role === "cashier" ? "cashier" : "barber",
                 active: true,
-                password: password
+                password: password,
+                day_off: null
             });
             writeStaff(rows);
             return {
@@ -1232,7 +1366,8 @@
                     name: name,
                     username: username,
                     role: payload.role === "cashier" ? "cashier" : "barber",
-                    active: true
+                    active: true,
+                    day_off: null
                 }
             };
         },
@@ -1258,6 +1393,9 @@
                 }
                 if (payload.password) {
                     row.password = String(payload.password);
+                }
+                if (Object.prototype.hasOwnProperty.call(payload, "day_off") && row.role !== "cashier") {
+                    row.day_off = parseDayOff(payload.day_off);
                 }
                 return row;
             });

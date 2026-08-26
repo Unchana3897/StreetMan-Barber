@@ -26,6 +26,9 @@
         if (code === "bad_name") {
             return "กรอกชื่อช่างให้ครบ";
         }
+        if (code === "bad_day_off") {
+            return "เลือกวันหยุดไม่ถูกต้อง";
+        }
         if (code === "owner_required") {
             return "หน้านี้ใช้ได้เฉพาะเจ้าของร้าน";
         }
@@ -50,6 +53,33 @@
             (barber.role === "cashier" ? " · เคาน์เตอร์คิดเงิน" : "") +
             (barber.active ? "" : " · ปิดงานอยู่");
         wrap.querySelector("[data-field='name']").value = barber.name;
+
+        if (barber.role !== "cashier") {
+            var dayLabel = document.createElement("label");
+            dayLabel.className = "manage-dayoff-label";
+            dayLabel.textContent = "วันหยุดประจำสัปดาห์";
+            var daySelect = document.createElement("select");
+            daySelect.className = "form-control";
+            daySelect.setAttribute("data-field", "day_off");
+            [
+                ["", "ยังไม่กำหนด"],
+                ["1", "จันทร์"],
+                ["2", "อังคาร"],
+                ["3", "พุธ"],
+                ["4", "พฤหัสบดี"],
+                ["5", "ศุกร์"],
+                ["6", "เสาร์"],
+                ["0", "อาทิตย์"]
+            ].forEach(function (pair) {
+                var opt = document.createElement("option");
+                opt.value = pair[0];
+                opt.textContent = pair[1];
+                daySelect.appendChild(opt);
+            });
+            daySelect.value = barber.day_off == null || barber.day_off === "" ? "" : String(barber.day_off);
+            wrap.querySelector("div").appendChild(dayLabel);
+            wrap.querySelector("div").appendChild(daySelect);
+        }
 
         var actions = wrap.querySelector(".manage-actions");
         var save = document.createElement("button");
@@ -86,6 +116,10 @@
         var payload = { name: name };
         if (password) {
             payload.password = password;
+        }
+        var dayOffEl = wrap.querySelector("[data-field='day_off']");
+        if (dayOffEl) {
+            payload.day_off = dayOffEl.value === "" ? null : Number(dayOffEl.value);
         }
         try {
             await window.StreetManStore.updateStaff(id, payload);

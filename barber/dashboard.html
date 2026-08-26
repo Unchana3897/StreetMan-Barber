@@ -40,10 +40,28 @@
         </div>
     </header>
     <div id="shop-closed-banner" class="shop-closed-banner d-none">ร้านปิดรับจองออนไลน์อยู่ ลูกค้าจองคิวใหม่ไม่ได้จนกว่า Rim จะเปิดร้าน</div>
+    <div id="day-off-banner" class="shop-closed-banner d-none">วันที่นี้ตรงกับวันหยุดประจำสัปดาห์ของฉัน ลูกค้าจองออนไลน์กับฉันไม่ได้</div>
     <div id="push-hint" class="push-hint"></div>
     <div id="toast" class="queue-toast d-none"></div>
     <main class="queue-wrap dash-wrap">
         <section class="week-strip" id="week-strip" aria-label="คิว 14 วันข้างหน้า"></section>
+        <section class="summary-panel hours-panel" id="hours-panel">
+            <h2>เวลาว่างของฉัน</h2>
+            <div class="hours-dayoff">
+                <div class="hours-dayoff-copy">
+                    <label for="day-off">วันหยุดประจำสัปดาห์</label>
+                    <p class="staff-copy mb-0">เปลี่ยนได้ตลอด คนละ 1 วันต่อสัปดาห์ ลูกค้าจะจองออนไลน์กับฉันในวันนี้ไม่ได้</p>
+                </div>
+                <select id="day-off" class="form-control" aria-label="วันหยุดประจำสัปดาห์"></select>
+                <button type="button" id="day-off-save" class="btn btn-primary">บันทึกวันหยุด</button>
+            </div>
+            <p class="staff-copy" id="hours-copy">แตะช่องเวลาเพื่อปิดรับจองในวันนี้ ช่องมืดคือไม่ว่าง ลูกค้าจองช่วงนั้นไม่ได้</p>
+            <div class="hours-grid" id="hours-grid"></div>
+            <div class="hours-actions">
+                <button type="button" class="btn btn-outline-light" id="hours-off">ปิดทั้งวัน</button>
+                <button type="button" class="btn btn-outline-light" id="hours-on">เปิดทั้งวัน</button>
+            </div>
+        </section>
         <section class="stat-grid" id="stat-grid">
             <button type="button" class="stat-card is-pending" data-filter="pending">
                 <span>รอรับ</span>

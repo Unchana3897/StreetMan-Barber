@@ -37,6 +37,26 @@
     var alertEl = document.getElementById("book-alert");
     var noteEl = document.getElementById("book-host-note");
     var useServer = null;
+    var barberList = [];
+
+    function weekdayOf(iso) {
+        var bits = String(iso || "").split("-").map(Number);
+        return new Date(Date.UTC(bits[0], bits[1] - 1, bits[2])).getUTCDay();
+    }
+
+    function selectedBarberOff() {
+        var id = barberEl.value;
+        if (!id || id === "any") {
+            return false;
+        }
+        var row = barberList.filter(function (item) {
+            return item.id === id;
+        })[0];
+        if (!row || row.day_off == null || row.day_off === "") {
+            return false;
+        }
+        return Number(row.day_off) === weekdayOf(dateEl.value);
+    }
 
     function todayISO() {
         var now = new Date();
@@ -108,7 +128,7 @@
         var code = bookingErrorCode(err);
         return (err && err.status === 409) || (err && err.status === 403) ||
             code === "slot_taken" || code === "shop_full" || code === "barber_full" ||
-            code === "shop_closed" || code === "already_booked";
+            code === "shop_closed" || code === "already_booked" || code === "barber_off";
     }
 
     function bookingErrorMessage(err) {
@@ -128,6 +148,9 @@
         }
         if (code === "shop_full") {
             return t("book_shop_full");
+        }
+        if (code === "barber_off") {
+            return t("book_barber_off");
         }
         return t("book_slot_taken");
     }
@@ -168,7 +191,7 @@
             }
             setFormClosed(false);
             if (!slots.length && serviceEl.value) {
-                showAlert(false, t("book_no_slots"));
+                showAlert(false, selectedBarberOff() ? t("book_barber_off") : t("book_no_slots"));
             } else if (showDone) {
                 showAlert(true, t("book_slots_updated"));
             }
@@ -266,6 +289,7 @@
         }
         try {
             var list = await window.StreetManStore.listBarbers();
+            barberList = list || [];
             if (!list.length) {
                 return;
             }
