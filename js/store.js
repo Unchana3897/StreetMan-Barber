@@ -560,8 +560,8 @@
             nodeMode = false;
             return false;
         }
-        if (nodeMode === true) {
-            return true;
+        if (nodeMode !== null) {
+            return nodeMode;
         }
         try {
             var res = await fetch("/api/slots?service=haircut&date=" + encodeURIComponent(bangkokNow().date));
@@ -570,7 +570,8 @@
                 return true;
             }
         } catch (err) {}
-        return true;
+        nodeMode = false;
+        return false;
     }
 
     async function nodeFetch(url, options) {
