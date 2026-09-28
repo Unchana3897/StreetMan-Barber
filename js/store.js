@@ -564,7 +564,7 @@
             return nodeMode;
         }
         try {
-            var res = await fetch("/api/slots?service=haircut&date=" + encodeURIComponent(bangkokNow().date));
+            var res = await fetch("/api/health");
             if (res.ok) {
                 nodeMode = true;
                 return true;

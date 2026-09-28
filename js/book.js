@@ -217,7 +217,7 @@
             return false;
         }
         try {
-            var res = await fetch("/api/slots?service=haircut&date=" + encodeURIComponent(todayISO()));
+            var res = await fetch("/api/health");
             useServer = res.ok;
         } catch (err) {
             useServer = false;

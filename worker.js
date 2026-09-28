@@ -13,6 +13,7 @@ const TIME_SLOTS = [
   "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"
 ];
 const SESSION_MS = 10 * 365 * 24 * 60 * 60 * 1000;
+let seedPromise = null;
 
 function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), {
@@ -85,16 +86,24 @@ async function passwordHash(password) {
 }
 
 async function ensureSeed(env) {
-  const hash = await passwordHash("StreetMan2026");
-  await env.DB.batch([
-    env.DB.prepare("INSERT OR IGNORE INTO barbers (id,name,username,password_hash,role,active) VALUES (?,?,?,?,?,1)").bind("rim", "Rim", "rim", hash, "owner"),
-    env.DB.prepare("INSERT OR IGNORE INTO barbers (id,name,username,password_hash,role,active) VALUES (?,?,?,?,?,1)").bind("bank", "Bank", "bank", hash, "barber"),
-    env.DB.prepare("INSERT OR IGNORE INTO barbers (id,name,username,password_hash,role,active) VALUES (?,?,?,?,?,1)").bind("rick", "Rick", "rick", hash, "barber"),
-    env.DB.prepare("INSERT OR IGNORE INTO barbers (id,name,username,password_hash,role,active) VALUES (?,?,?,?,?,1)").bind("dee", "Dee", "dee", hash, "barber"),
-    env.DB.prepare("INSERT OR IGNORE INTO barbers (id,name,username,password_hash,role,active) VALUES (?,?,?,?,?,1)").bind("pos", "เคาน์เตอร์", "pos", hash, "cashier"),
-    env.DB.prepare("INSERT OR IGNORE INTO shop_settings (key,value) VALUES ('closed','0')"),
-    env.DB.prepare("INSERT OR IGNORE INTO shop_settings (key,value) VALUES ('closed_note','')")
-  ]);
+  if (!seedPromise) {
+    seedPromise = (async () => {
+      const hash = await passwordHash("StreetMan2026");
+      await env.DB.batch([
+        env.DB.prepare("INSERT OR IGNORE INTO barbers (id,name,username,password_hash,role,active) VALUES (?,?,?,?,?,1)").bind("rim", "Rim", "rim", hash, "owner"),
+        env.DB.prepare("INSERT OR IGNORE INTO barbers (id,name,username,password_hash,role,active) VALUES (?,?,?,?,?,1)").bind("bank", "Bank", "bank", hash, "barber"),
+        env.DB.prepare("INSERT OR IGNORE INTO barbers (id,name,username,password_hash,role,active) VALUES (?,?,?,?,?,1)").bind("rick", "Rick", "rick", hash, "barber"),
+        env.DB.prepare("INSERT OR IGNORE INTO barbers (id,name,username,password_hash,role,active) VALUES (?,?,?,?,?,1)").bind("dee", "Dee", "dee", hash, "barber"),
+        env.DB.prepare("INSERT OR IGNORE INTO barbers (id,name,username,password_hash,role,active) VALUES (?,?,?,?,?,1)").bind("pos", "เคาน์เตอร์", "pos", hash, "cashier"),
+        env.DB.prepare("INSERT OR IGNORE INTO shop_settings (key,value) VALUES ('closed','0')"),
+        env.DB.prepare("INSERT OR IGNORE INTO shop_settings (key,value) VALUES ('closed_note','')")
+      ]);
+    })().catch((error) => {
+      seedPromise = null;
+      throw error;
+    });
+  }
+  return seedPromise;
 }
 
 async function all(env, sql, ...params) {
@@ -189,6 +198,38 @@ async function pickBarber(env, requested, date, time, service, extras = []) {
     if (!(await placement(env, barber.id, date, time, service, extras)).error) return { barber };
   }
   return { error: "slot_taken" };
+}
+
+async function availabilityContext(env, date) {
+  const [chairs, bookings, blocks] = await Promise.all([
+    listBarbers(env, true, true),
+    all(env, "SELECT barber_id,time,service,extras FROM bookings WHERE date=? AND status!='cancelled'", date),
+    all(env, "SELECT barber_id,slot FROM barber_blocks WHERE date=?", date)
+  ]);
+  const unavailable = new Map(chairs.map((barber) => [barber.id, new Set()]));
+  bookings.forEach((row) => {
+    if (!unavailable.has(row.barber_id)) unavailable.set(row.barber_id, new Set());
+    (occupyRange(row.time, slotsCount(row.service, parseExtras(row.extras, row.service)), true) || [row.time])
+      .forEach((slot) => unavailable.get(row.barber_id).add(slot));
+  });
+  blocks.forEach((row) => {
+    if (!unavailable.has(row.barber_id)) unavailable.set(row.barber_id, new Set());
+    unavailable.get(row.barber_id).add(row.slot);
+  });
+  return { chairs, unavailable };
+}
+
+function hasAvailableBarber(context, requested, date, time, service) {
+  const range = occupyRange(time, slotsCount(service), false);
+  if (!range) return false;
+  const candidates = requested && requested !== "any"
+    ? context.chairs.filter((barber) => barber.id === requested)
+    : context.chairs;
+  return candidates.some((barber) => {
+    if (barber.day_off === weekdayOf(date)) return false;
+    const unavailable = context.unavailable.get(barber.id) || new Set();
+    return !range.some((slot) => unavailable.has(slot));
+  });
 }
 
 function isPast(date, time) {
@@ -299,8 +340,9 @@ async function shopSummary(env, date) {
 }
 
 async function handleApi(request, env, url) {
-  await ensureSeed(env);
   const path = url.pathname, method = request.method;
+  if (path === "/api/health" && method === "GET") return json({ ok: true });
+  await ensureSeed(env);
 
   if (path === "/api/shop" && method === "GET") return json(await shopState(env));
   if (path === "/api/barbers" && method === "GET") {
@@ -312,12 +354,9 @@ async function handleApi(request, env, url) {
     const date = url.searchParams.get("date") || bangkokNow().date;
     const barber = url.searchParams.get("barber") || "any";
     if (!SERVICES[service]) return json({ error: "bad_service" }, 400);
-    const state = await shopState(env);
+    const [state, context] = await Promise.all([shopState(env), availabilityContext(env, date)]);
     if (state.closed) return json({ date, slots: [], closed: true, note: state.note });
-    const output = [];
-    for (const slot of slotsFor(service).filter((s) => !isPast(date, s))) {
-      if (!(await pickBarber(env, barber, date, slot, service)).error) output.push(slot);
-    }
+    const output = slotsFor(service).filter((slot) => !isPast(date, slot) && hasAvailableBarber(context, barber, date, slot, service));
     return json({ date, slots: output, closed: false, note: state.note });
   }
   if (path === "/api/bookings" && method === "POST") {
