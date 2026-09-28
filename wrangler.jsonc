@@ -2,11 +2,20 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "streetman-barber",
   "compatibility_date": "2026-09-26",
+  "main": "worker.js",
   "build": {
     "command": "npm run build"
   },
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "404-page"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "streetman-barber-db",
+      "database_id": "a2825ea7-dafb-4788-9c62-6c5d30e27bde"
+    }
+  ]
 }
