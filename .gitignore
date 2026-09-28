@@ -4,3 +4,5 @@ data/
 *.sqlite
 *.sqlite-journal
 .DS_Store
+dist/
+.wrangler/

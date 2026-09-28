@@ -5,6 +5,7 @@
   "description": "StreetMan Barber Phuket shop site, booking API, and barber queue",
   "main": "server/index.js",
   "scripts": {
+    "build": "node scripts/build-static.js",
     "start": "node server/index.js",
     "seed": "node server/seed.js"
   },
