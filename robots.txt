@@ -3,5 +3,6 @@ Allow: /
 Disallow: /barber
 Disallow: /api/
 Disallow: /cancel.html
+Disallow: /cancel
 
 Sitemap: https://streeetmanbarberphuket.shop/sitemap.xml

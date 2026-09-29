@@ -12,42 +12,42 @@ const pages = {
     description: "ร้านตัดผมชายภูเก็ต ย่านวิชิต ตัดผม เฟด ตกแต่งเคราและโกนหนวด ราคาเริ่ม 200 บาท เปิดทุกวัน 11:00–20:00 จองคิวออนไลน์ได้"
   },
   "about.html": {
-    path: "/about.html",
+    path: "/about",
     title: "ร้านตัดผมชายภูเก็ต ย่านวิชิต | รู้จัก StreetMan Barber",
     description: "รู้จัก StreetMan Barber Phuket ร้านตัดผมชายท้องถิ่นย่านวิชิต เปิดตั้งแต่ปี 2021 ดูแลทั้งคนภูเก็ต ชาวต่างชาติ และนักท่องเที่ยว"
   },
   "service.html": {
-    path: "/service.html",
+    path: "/service",
     title: "บริการตัดผมชาย เฟด เครา ภูเก็ต | StreetMan Barber",
     description: "บริการตัดผมชายและเฟดในภูเก็ต ตกแต่งเครา โกนหนวด ย้อมผม และเซ็ตทรง พร้อมราคาและเวลาบริการชัดเจนที่วิชิต"
   },
   "price.html": {
-    path: "/price.html",
+    path: "/price",
     title: "ราคาตัดผมชายภูเก็ต เริ่ม 300 บาท | StreetMan Barber",
     description: "เช็กราคาตัดผมชายภูเก็ต ตัดผม 300 บาท เคราและโกนหนวด 200 บาท ย้อมผม 150 บาท ราคาชัดเจน จองคิวออนไลน์ได้"
   },
   "team.html": {
-    path: "/team.html",
+    path: "/team",
     title: "ช่างตัดผมภูเก็ต ทีม StreetMan Barber วิชิต",
     description: "เลือกช่างตัดผมภูเก็ตที่ StreetMan Barber วิชิต จองกับริม แบงค์ ริค หรือดี ดูทีมช่างและเลือกเวลาว่างออนไลน์"
   },
   "open.html": {
-    path: "/open.html",
+    path: "/open",
     title: "ร้านตัดผมภูเก็ตเปิดทุกวัน 11:00–20:00 | StreetMan",
     description: "StreetMan Barber Phuket เปิดทุกวัน 11:00–20:00 ที่วิชิต คิวตัดผมสุดท้าย 19:00 ตรวจเวลาว่างและจองออนไลน์ได้"
   },
   "contact.html": {
-    path: "/contact.html",
+    path: "/contact",
     title: "ร้านตัดผมใกล้ฉัน วิชิต ภูเก็ต | แผนที่และติดต่อ",
     description: "แผนที่และช่องทางติดต่อ StreetMan Barber Phuket เลขที่ 19/82 หมู่ 2 วิชิต โทร 062-525-8941 พร้อม WhatsApp และจองออนไลน์"
   },
   "testimonial.html": {
-    path: "/testimonial.html",
+    path: "/testimonial",
     title: "รีวิวร้านตัดผมภูเก็ต | StreetMan Barber วิชิต",
     description: "อ่านความคิดเห็นจากลูกค้าคนไทยและชาวต่างชาติของ StreetMan Barber Phuket ร้านตัดผมชายย่านวิชิต"
   },
   "book.html": {
-    path: "/book.html",
+    path: "/book",
     title: "จองคิวร้านตัดผมภูเก็ตออนไลน์ | StreetMan Barber",
     description: "จองคิวตัดผมภูเก็ตออนไลน์ เลือกบริการ ช่าง วันและเวลาได้ทันที StreetMan Barber วิชิต เปิดทุกวัน 11:00–20:00"
   }
@@ -90,6 +90,10 @@ for (const [file, seo] of Object.entries(pages)) {
       '<img class="w-100" src="img/carousel-2.jpg"',
       '<img class="w-100" src="img/carousel-2.jpg" loading="lazy" decoding="async"'
     );
+  }
+  html = html.replace(/href="index\.html([?#][^"]*)?"/g, 'href="/$1"');
+  for (const slug of ["about", "service", "price", "team", "open", "contact", "testimonial", "book", "cancel"]) {
+    html = html.replace(new RegExp(`href="${slug}\\.html`, "g"), `href="${slug}`);
   }
   fs.writeFileSync(filename, html);
 }

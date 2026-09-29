@@ -566,10 +566,11 @@ export default {
         target.protocol = "https:";
         target.host = "streeetmanbarberphuket.shop";
         if (target.pathname === "/index.html") target.pathname = "/";
+        else if (target.pathname.endsWith(".html")) target.pathname = target.pathname.slice(0, -5);
         return Response.redirect(target.toString(), 301);
       }
-      if (url.pathname === "/index.html") {
-        url.pathname = "/";
+      if (url.pathname === "/index.html" || url.pathname.endsWith(".html")) {
+        url.pathname = url.pathname === "/index.html" ? "/" : url.pathname.slice(0, -5);
         return Response.redirect(url.toString(), 301);
       }
       if (url.pathname.startsWith("/api/")) return await handleApi(request, env, url);

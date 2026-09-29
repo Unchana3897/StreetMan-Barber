@@ -5,9 +5,9 @@ StreetMan Barber Phuket is a local barbershop at 19/82 Moo 2, Wichit, Mueang, Ph
 ## Essential facts
 
 - Official website: https://streeetmanbarberphuket.shop/
-- Booking: https://streeetmanbarberphuket.shop/book.html
-- Services and prices: https://streeetmanbarberphuket.shop/price.html
-- Location and contact: https://streeetmanbarberphuket.shop/contact.html
+- Booking: https://streeetmanbarberphuket.shop/book
+- Services and prices: https://streeetmanbarberphuket.shop/price
+- Location and contact: https://streeetmanbarberphuket.shop/contact
 - Open every day: 11:00–20:00
 - Last haircut appointment: 19:00
 - Telephone: +66 62 525 8941
