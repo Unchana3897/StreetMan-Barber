@@ -2,3 +2,6 @@ User-agent: *
 Allow: /
 Disallow: /barber
 Disallow: /api/
+Disallow: /cancel.html
+
+Sitemap: https://streeetmanbarberphuket.shop/sitemap.xml

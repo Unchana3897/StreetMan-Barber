@@ -560,6 +560,18 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     try {
+      const host = url.hostname.toLowerCase();
+      if (host === "www.streeetmanbarberphuket.shop" || host.endsWith(".workers.dev")) {
+        const target = new URL(request.url);
+        target.protocol = "https:";
+        target.host = "streeetmanbarberphuket.shop";
+        if (target.pathname === "/index.html") target.pathname = "/";
+        return Response.redirect(target.toString(), 301);
+      }
+      if (url.pathname === "/index.html") {
+        url.pathname = "/";
+        return Response.redirect(url.toString(), 301);
+      }
       if (url.pathname.startsWith("/api/")) return await handleApi(request, env, url);
       if (url.pathname === "/barber" || url.pathname === "/barber/") return Response.redirect(`${url.origin}/barber/login.html`, 302);
       const response = await env.ASSETS.fetch(request);
