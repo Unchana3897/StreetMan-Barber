@@ -20,7 +20,8 @@ self.addEventListener("push", (event) => {
     event.waitUntil(Promise.all([
         self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
             clients.forEach((client) => {
-                client.postMessage({ type: "queue_alert", title: data.title, body: data.body });
+                // Only new bookings ring the queue alarm on an open barber page.
+                client.postMessage({ type: data.kind && data.kind !== "booking" ? "notice" : "queue_alert", title: data.title, body: data.body });
             });
         }),
         self.registration.showNotification(data.title, {
@@ -31,7 +32,7 @@ self.addEventListener("push", (event) => {
             silent: false,
             vibrate: [400, 120, 400, 120, 400, 180, 700],
             requireInteraction: true,
-            tag: "streetman-queue",
+            tag: data.tag || "streetman-queue",
             renotify: true,
             data: { url: data.url || "dashboard.html" }
         })
@@ -43,9 +44,13 @@ self.addEventListener("notificationclick", (event) => {
     const url = (event.notification.data && event.notification.data.url) || "dashboard.html";
     event.waitUntil(
         self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+            const page = url.split(/[?#]/)[0].replace(/\.html$/, "");
+            const target = new URL(url, self.registration.scope).href;
             for (let i = 0; i < clients.length; i += 1) {
-                if (clients[i].url.indexOf("/barber/") !== -1 && "focus" in clients[i]) {
-                    return clients[i].focus();
+                if (clients[i].url.indexOf("/barber/" + page) !== -1 && "focus" in clients[i]) {
+                    // Same page already open: bring it forward on the right section.
+                    return (clients[i].navigate ? clients[i].navigate(target) : Promise.resolve(clients[i]))
+                        .then((client) => (client || clients[i]).focus());
                 }
             }
             if (self.clients.openWindow) {

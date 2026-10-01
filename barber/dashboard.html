@@ -18,33 +18,30 @@
     <link href="../css/style.css" rel="stylesheet">
     <link href="queue.css" rel="stylesheet">
 </head>
-<body class="staff-body queue-body dash-body">
-    <header class="queue-top">
+<body class="staff-body queue-body dash-body has-staff-nav">
+<div class="staff-shell">
+    <aside id="staff-nav" class="staff-nav" data-page="queue" data-actions="notify shop"></aside>
+    <div class="staff-main">
+    <header class="queue-top page-head">
         <div>
-            <p class="staff-kicker mb-1">StreetMan Barber Phuket · Dashboard</p>
             <h1 id="barber-name">คิวของฉัน</h1>
             <p class="staff-copy mb-0" id="clock">—</p>
-        </div>
-        <div class="queue-top-actions">
-            <button type="button" class="btn btn-outline-light" id="prev-day" aria-label="วันก่อนหน้า"><i class="fa fa-chevron-left"></i></button>
-            <input type="date" id="queue-date" class="form-control">
-            <button type="button" class="btn btn-outline-light" id="today-btn">วันนี้</button>
-            <button type="button" class="btn btn-outline-light" id="refresh-btn">รีเฟรช</button>
-            <button type="button" class="btn btn-outline-light" id="next-day" aria-label="วันถัดไป"><i class="fa fa-chevron-right"></i></button>
-            <button type="button" class="btn btn-outline-light" id="notify-btn">เปิดแจ้งเตือนมือถือ</button>
-            <a href="pos.html" class="btn btn-primary d-none" id="pos-link">POS</a>
-            <a href="income.html" class="btn btn-primary">รายได้</a>
-            <button type="button" class="btn btn-primary d-none" id="shop-close-btn">ปิดร้าน</button>
-            <a href="manage.html" class="btn btn-primary d-none" id="manage-link">จัดการช่าง</a>
-            <button type="button" class="btn btn-outline-light" id="logout-btn">ออกจากระบบ</button>
         </div>
     </header>
     <div id="shop-closed-banner" class="shop-closed-banner d-none">ร้านปิดรับจองออนไลน์อยู่ ลูกค้าจองคิวใหม่ไม่ได้จนกว่า Rim จะเปิดร้าน</div>
     <div id="day-off-banner" class="shop-closed-banner d-none">วันที่นี้ตรงกับวันหยุดประจำสัปดาห์ของฉัน ลูกค้าจองออนไลน์กับฉันไม่ได้</div>
-    <div id="push-hint" class="push-hint"></div>
+    <div id="push-hint" class="push-hint d-none"></div>
     <div id="toast" class="queue-toast d-none"></div>
     <main class="queue-wrap dash-wrap">
-        <section class="week-strip" id="week-strip" aria-label="คิว 14 วันข้างหน้า"></section>
+        <div class="date-bar">
+            <button type="button" class="date-step" id="prev-day" aria-label="วันก่อนหน้า"><i class="fa fa-chevron-left"></i></button>
+            <section class="week-strip" id="week-strip" aria-label="คิว 14 วันข้างหน้า"></section>
+            <button type="button" class="date-step" id="next-day" aria-label="วันถัดไป"><i class="fa fa-chevron-right"></i></button>
+            <div class="date-pick">
+                <input type="date" id="queue-date" class="form-control" aria-label="เลือกวันที่">
+                <button type="button" class="btn btn-sm btn-outline-light d-none" id="today-btn">กลับวันนี้</button>
+            </div>
+        </div>
         <section class="summary-panel hours-panel" id="hours-panel">
             <h2>เวลาว่างของฉัน</h2>
             <div class="hours-dayoff">
@@ -91,8 +88,11 @@
         <p id="empty" class="staff-copy">ยังไม่มีคิววันนี้</p>
         <div id="queue-list"></div>
     </main>
+    </div>
+</div>
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="../js/store.js"></script>
+    <script src="nav.js"></script>
     <script src="dashboard.js"></script>
 </body>
 </html>

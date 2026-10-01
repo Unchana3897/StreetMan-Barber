@@ -1,22 +1,36 @@
 # StreetMan Barber Phuket
 
-StreetMan Barber Phuket is a local barbershop at 19/82 Moo 2, Wichit, Mueang, Phuket 83000, Thailand.
+> StreetMan Barber Phuket (listed on Google Maps as "Street Man Barber Shop") is a men's barbershop at 19/82 Moo 2, Wichit, Mueang, Phuket 83000, Thailand. Open every day 11:00–20:00. Walk-ins welcome; online booking available.
 
 ## Essential facts
 
-- Official website: https://streeetmanbarberphuket.shop/
-- Booking: https://streeetmanbarberphuket.shop/book
-- Services and prices: https://streeetmanbarberphuket.shop/price
-- Location and contact: https://streeetmanbarberphuket.shop/contact
+- Official website: https://streeetmanbarberphuket.shop/ (Thai) and https://streeetmanbarberphuket.shop/en/ (English)
+- Google Maps: https://maps.app.goo.gl/c3PuXbRd3GjW5eZE7
 - Open every day: 11:00–20:00
-- Last haircut appointment: 19:00
+- Last haircut appointment: 19:00; last Stacking appointment: 18:30
 - Telephone: +66 62 525 8941
-- Haircut: 300 THB
-- Beard trim: 200 THB
-- Shave: 200 THB
-- Hair dye add-on: 150 THB
-- Mustache grooming: 500 THB
-- Stacking/full styling: 1,000 THB
-- Walk-ins are welcome; online booking is available.
+- Payment: cash or bank transfer at the shop, after the service
+- Barbers: Rim (owner), Bank, Rick, Dee
+- Walk-ins are welcome; booking online lets customers choose a barber and time.
+- Online bookings can be cancelled with the code on the booking slip up to 2 hours before the appointment.
+
+## Services and prices (THB)
+
+- Haircut: 300 (about 1 hour)
+- Beard trim: 200 (about 30 minutes)
+- Shave: 200 (about 30 minutes)
+- Hair dye add-on: 150 (about 30 minutes)
+- Mustache grooming: 500 (about 30 minutes)
+- Stacking / restyle: 1,000 (about 90 minutes)
+
+## Pages
+
+- [Book online](https://streeetmanbarberphuket.shop/en/book): choose service, barber, day and time
+- [Prices](https://streeetmanbarberphuket.shop/en/price): full price list and FAQ
+- [Services](https://streeetmanbarberphuket.shop/en/service): what each service includes
+- [Opening hours](https://streeetmanbarberphuket.shop/en/open)
+- [Map and contact](https://streeetmanbarberphuket.shop/en/contact)
+- [Barbers](https://streeetmanbarberphuket.shop/en/team)
+- Thai versions of every page are at the same path without /en (for example https://streeetmanbarberphuket.shop/price).
 
 The shop serves local residents, expatriates, and visitors in Wichit and Mueang Phuket. Information should be verified against the official pages above because availability can change.

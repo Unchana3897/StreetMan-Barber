@@ -17,10 +17,12 @@
     <link href="../css/style.css" rel="stylesheet">
     <link href="queue.css" rel="stylesheet">
 </head>
-<body class="staff-body queue-body dash-body">
-    <header class="queue-top">
+<body class="staff-body queue-body dash-body has-staff-nav">
+<div class="staff-shell">
+    <aside id="staff-nav" class="staff-nav" data-page="income" data-actions=""></aside>
+    <div class="staff-main">
+    <header class="queue-top page-head">
         <div>
-            <p class="staff-kicker mb-1">StreetMan Barber Phuket · รายได้</p>
             <h1 id="barber-name">รายได้ของฉัน</h1>
             <p class="staff-copy mb-0">นับคิวที่ตัดเสร็จแล้ว ทั้งวอล์กอินหน้าร้านและจองออนไลน์</p>
         </div>
@@ -31,10 +33,6 @@
             <button type="button" class="btn btn-outline-light" id="next-day" aria-label="วันถัดไป"><i class="fa fa-chevron-right"></i></button>
             <button type="button" class="btn btn-outline-light d-none" id="export-week">Excel สัปดาห์</button>
             <button type="button" class="btn btn-outline-light d-none" id="export-month">Excel เดือน</button>
-            <a href="dashboard.html" class="btn btn-outline-light">หน้าคิว</a>
-            <a href="pos.html" class="btn btn-primary d-none" id="pos-link">POS</a>
-            <a href="manage.html" class="btn btn-primary d-none" id="manage-link">จัดการช่าง</a>
-            <button type="button" class="btn btn-outline-light" id="logout-btn">ออกจากระบบ</button>
         </div>
     </header>
     <div id="toast" class="queue-toast d-none"></div>
@@ -53,7 +51,10 @@
         </section>
         <section id="shop-income" class="shop-panel d-none"></section>
     </main>
+    </div>
+</div>
     <script src="../js/store.js"></script>
+    <script src="nav.js"></script>
     <script src="income.js"></script>
 </body>
 </html>

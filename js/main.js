@@ -47,6 +47,18 @@
     }
 
     $(document).on("click", ".lang-btn", function () {
-        window.StreetMan.applyLang($(this).attr("data-lang"));
+        var lang = $(this).attr("data-lang");
+        var current = window.StreetMan.pageLang();
+        if (current && lang !== current) {
+            // Built pages have a twin per language: /price <-> /en/price.
+            try { window.localStorage.setItem("streetman-lang", lang); } catch (err) {}
+            var path = window.location.pathname;
+            var target = lang === "en"
+                ? "/en" + (path === "/" ? "/" : path)
+                : (path.replace(/^\/en(?=\/|$)/, "") || "/");
+            window.location.href = target + window.location.search + window.location.hash;
+            return;
+        }
+        window.StreetMan.applyLang(lang);
     });
 })(jQuery);

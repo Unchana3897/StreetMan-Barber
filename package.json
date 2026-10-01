@@ -6,8 +6,16 @@
   "main": "server/index.js",
   "scripts": {
     "build": "node scripts/build-static.js",
-    "start": "node server/index.js",
-    "seed": "node server/seed.js"
+    "start": "wrangler dev",
+    "seed": "node server/seed.js",
+    "dev": "wrangler dev",
+    "dev:lan": "node scripts/dev-lan.js",
+    "db:migrate:local": "wrangler d1 migrations apply streetman-barber-db --local",
+    "db:seed:local": "wrangler d1 execute streetman-barber-db --local --file scripts/dev-seed.sql",
+    "db:demo:local": "node scripts/demo-data.js > .wrangler/demo.sql && wrangler d1 execute streetman-barber-db --local --file .wrangler/demo.sql",
+    "db:demo:clear": "node scripts/demo-data.js --clear > .wrangler/demo.sql && wrangler d1 execute streetman-barber-db --local --file .wrangler/demo.sql",
+    "start:legacy": "node server/index.js",
+    "push:keys": "node scripts/push-keys.js"
   },
   "engines": {
     "node": ">=20 <23"
@@ -18,5 +26,9 @@
     "cookie-parser": "^1.4.7",
     "express": "^4.21.2",
     "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.5",
+    "wrangler": "^4.145.0"
   }
 }

@@ -3,7 +3,7 @@
 
     var STORAGE_KEY = "streetman-lang";
     var WA_NUMBER = "66625258941";
-    var MAPS_URL = "https://www.google.com/maps/dir/?api=1&destination=7.858419,98.361948";
+    var MAPS_URL = "https://www.google.com/maps/dir/?api=1&destination=7.858419,98.3645229";
 
     var I18N = {
         th: {
@@ -66,6 +66,25 @@
             faq_a3: "เปิดทุกวัน 11:00–20:00 คิวตัดผมสุดท้าย 19:00 และ Stacking สุดท้าย 18:30",
             faq_q4: "รับวอล์กอินหรือต้องจอง?",
             faq_a4: "รับวอล์กอินและจองออนไลน์ หากต้องการเลือกช่างหรือเวลาแน่นอน แนะนำให้ตรวจเวลาว่างและจองก่อนเดินทาง",
+            faq_updated: "ข้อมูลอัปเดตล่าสุด 1 ตุลาคม 2026",
+            faq_price_q1: "ตัดผมใช้เวลานานแค่ไหน?",
+            faq_price_a1: "ตัดผมใช้เวลาประมาณ 1 ชั่วโมง ตกแต่งเครา โกนหนวด ย้อมผม และ Mustache ประมาณ 30 นาที ส่วน Stacking ประมาณ 1 ชั่วโมงครึ่ง",
+            faq_price_q2: "จ่ายเงินได้ทางไหนบ้าง?",
+            faq_price_a2: "จ่ายที่ร้านหลังรับบริการ ด้วยเงินสดหรือโอนเงิน ราคาเป็นเงินบาทตามที่แสดงในหน้านี้",
+            faq_price_q3: "เพิ่มบริการตอนอยู่ที่ร้านได้ไหม?",
+            faq_price_a3: "ได้ เช่นตัดผมแล้วขอตกแต่งเคราเพิ่ม บอกช่างที่ร้านได้เลย คิดราคาตามบริการที่เพิ่ม ถ้าช่างมีคิวต่อจะแจ้งก่อน",
+            faq_service_q1: "เลือกช่างเองได้ไหม?",
+            faq_service_a1: "ได้ ตอนจองออนไลน์เลือกช่างที่ต้องการ หรือเลือก \"ใครก็ได้ที่ว่าง\" ให้ระบบหาช่างที่ว่างในเวลานั้น",
+            faq_service_q2: "ยกเลิกคิวได้ไหม?",
+            faq_service_a2: "ยกเลิกออนไลน์ได้ด้วยรหัสบนใบจองคิว จนถึง 2 ชั่วโมงก่อนเวลานัด ถ้าเหลือน้อยกว่านั้นให้ติดต่อร้านทางโทรศัพท์หรือ WhatsApp",
+            faq_service_q3: "ร้านมีบริการอะไรบ้าง?",
+            faq_service_a3: "ตัดผมชายและเฟด ตกแต่งเครา โกนหนวด ย้อมผม Mustache และเซ็ตทรง / Stacking ดูราคาทุกบริการได้ที่หน้าราคา",
+            faq_contact_q1: "ติดต่อร้านทางไหนเร็วที่สุด?",
+            faq_contact_a1: "โทรหรือ WhatsApp เร็วที่สุด โดยเฉพาะช่วงร้านคิวแน่น ถ้าต้องการจองคิว จองออนไลน์ได้ตลอด 24 ชั่วโมง",
+            faq_contact_q2: "หาร้านบน Google Maps ได้ไหม?",
+            faq_contact_a2: "ได้ ค้นหา Street Man Barber Shop บน Google Maps หรือกดปุ่มแผนที่ในหน้านี้ ร้านอยู่ที่ 19/82 หมู่ 2 ตำบลวิชิต อำเภอเมืองภูเก็ต",
+            faq_contact_q3: "ไม่จองมาที่ร้านเลยได้ไหม?",
+            faq_contact_a3: "ได้ ร้านรับวอล์กอินทุกวัน 11:00–20:00 แต่ถ้ามาช่วงคิวแน่นอาจต้องรอ จองออนไลน์ก่อนจะได้เวลาและช่างที่ต้องการ",
             svc_badge: "บริการ",
             svc_title: "บริการของร้าน",
             svc_haircut: "ตัดผม",
@@ -277,6 +296,25 @@
             faq_a3: "We open every day from 11:00 to 20:00. The last haircut appointment is 19:00 and the last Stacking appointment is 18:30.",
             faq_q4: "Do you accept walk-ins?",
             faq_a4: "Yes. We accept walk-ins and online bookings. Book ahead if you want a specific barber or time.",
+            faq_updated: "Last updated 1 October 2026",
+            faq_price_q1: "How long does a haircut take?",
+            faq_price_a1: "A haircut takes about 1 hour. Beard trim, shave, hair dye and mustache grooming take about 30 minutes each, and Stacking takes about 1.5 hours.",
+            faq_price_q2: "How can I pay?",
+            faq_price_a2: "Pay at the shop after your service, by cash or bank transfer. Prices are in Thai baht as listed on this page.",
+            faq_price_q3: "Can I add a service while I am at the shop?",
+            faq_price_a3: "Yes. For example, add a beard trim after your haircut. Just tell your barber; the added service is charged at its listed price. If the barber has a next appointment, they will let you know first.",
+            faq_service_q1: "Can I choose my barber?",
+            faq_service_a1: "Yes. When booking online, pick the barber you want, or choose \"Anyone available\" and the system finds whoever is free at that time.",
+            faq_service_q2: "Can I cancel my booking?",
+            faq_service_a2: "Yes. Cancel online with the code on your booking slip up to 2 hours before your appointment. Closer than that, please call or WhatsApp the shop.",
+            faq_service_q3: "What services do you offer?",
+            faq_service_a3: "Men's haircuts and fades, beard trims, shaves, hair dye, mustache grooming and Stacking / Restyle. See every price on the price page.",
+            faq_contact_q1: "What is the fastest way to reach the shop?",
+            faq_contact_a1: "Phone or WhatsApp is fastest, especially when the shop is busy. You can book online 24 hours a day.",
+            faq_contact_q2: "Is the shop on Google Maps?",
+            faq_contact_a2: "Yes. Search for Street Man Barber Shop on Google Maps or use the map button on this page. The shop is at 19/82 Moo 2, Wichit, Mueang Phuket.",
+            faq_contact_q3: "Can I walk in without booking?",
+            faq_contact_a3: "Yes. Walk-ins are welcome every day from 11:00 to 20:00, but you may have to wait at busy times. Book online to get the time and barber you want.",
             svc_badge: "Services",
             svc_title: "What We Provide",
             svc_haircut: "Haircut",
@@ -445,7 +483,16 @@
         "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"
     ];
 
+    // Public pages are built in one language each (/ = Thai, /en/ = English).
+    function pageLang() {
+        var lang = document.documentElement.getAttribute("data-page-lang");
+        return lang === "th" || lang === "en" ? lang : "";
+    }
+
     function detectLang() {
+        if (pageLang()) {
+            return pageLang();
+        }
         var stored = window.localStorage.getItem(STORAGE_KEY);
         if (stored === "th" || stored === "en") {
             return stored;
@@ -474,7 +521,8 @@
         document.documentElement.setAttribute("data-lang", lang);
 
         var page = document.body ? document.body.getAttribute("data-page") : "";
-        if (page) {
+        // Built pages already carry their own SEO title; only retitle pages switched in place.
+        if (page && !pageLang()) {
             var titleKey = "title_" + page;
             if (I18N[lang][titleKey]) {
                 document.title = I18N[lang][titleKey];
@@ -536,6 +584,7 @@
 
     window.StreetMan = {
         I18N: I18N,
+        pageLang: pageLang,
         MAPS_URL: MAPS_URL,
         detectLang: detectLang,
         t: t,

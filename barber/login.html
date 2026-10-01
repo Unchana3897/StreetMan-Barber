@@ -19,17 +19,69 @@
 <body class="staff-body">
     <div class="staff-card">
         <p class="staff-kicker">StreetMan Barber Phuket</p>
-        <h1>เข้าสู่ระบบช่าง</h1>
-        <p class="staff-copy">ช่างใช้ชื่อ <strong>rim</strong>, <strong>bank</strong>, <strong>rick</strong>, <strong>dee</strong> — เข้าหน้าคิวและรายได้<br>เครื่องคิดเงินใช้ชื่อ <strong>pos</strong> แยกจาก Rim โดยสิ้นเชิง</p>
-        <p class="staff-copy">เข้าแล้วเครื่องนี้จะจำไว้ ไม่ต้องล็อกอินใหม่ จนกว่าจะกดออกจากระบบ<br>Rim ดูผลประกอบการทั้งหน้าร้านและจองออนไลน์ได้ที่หน้ารายได้ เครื่อง POS คิดเงินได้อย่างเดียว</p>
-        <form id="login-form">
-            <label for="username">ชื่อผู้ใช้</label>
-            <input id="username" class="form-control" autocomplete="username" required>
-            <label for="password">รหัสผ่าน</label>
-            <input id="password" type="password" class="form-control" autocomplete="current-password" required>
-            <p id="login-error" class="staff-error d-none"></p>
-            <button class="btn btn-primary w-100 py-3 mt-3" type="submit">เข้าสู่ระบบ</button>
-        </form>
+
+        <section id="login-view">
+            <h1>เข้าสู่ระบบช่าง</h1>
+            <p class="staff-copy">เข้าแล้วเครื่องนี้จะจำไว้ ไม่ต้องล็อกอินใหม่ จนกว่าจะกดออกจากระบบ</p>
+            <form id="login-form">
+                <label for="username">ชื่อผู้ใช้</label>
+                <input id="username" class="form-control" autocomplete="username" autocapitalize="none" required>
+                <label for="password">รหัสผ่าน</label>
+                <input id="password" type="password" class="form-control" autocomplete="current-password" required>
+                <p id="login-error" class="staff-error d-none" role="alert"></p>
+                <button class="btn btn-primary w-100 py-3 mt-3" type="submit">เข้าสู่ระบบ</button>
+            </form>
+            <div class="staff-switch">
+                <button type="button" class="btn btn-outline-light w-100" data-view="password-view">เปลี่ยนรหัสผ่าน</button>
+                <button type="button" class="btn btn-outline-light w-100" data-view="signup-view">สมัครเป็นช่างใหม่</button>
+            </div>
+        </section>
+
+        <section id="password-view" class="d-none">
+            <h1>เปลี่ยนรหัสผ่าน</h1>
+            <p class="staff-copy" id="password-copy">กรอกรหัสผ่านเดิมและรหัสผ่านใหม่ เปลี่ยนแล้วเครื่องอื่นที่เคยล็อกอินไว้จะออกจากระบบ</p>
+            <form id="password-form">
+                <label for="pw-username">ชื่อผู้ใช้</label>
+                <input id="pw-username" class="form-control" autocomplete="username" autocapitalize="none" required>
+                <label for="pw-current">รหัสผ่านเดิม</label>
+                <input id="pw-current" type="password" class="form-control" autocomplete="current-password" required>
+                <label for="pw-new">รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)</label>
+                <input id="pw-new" type="password" class="form-control" autocomplete="new-password" minlength="8" maxlength="72" required>
+                <label for="pw-confirm">พิมพ์รหัสผ่านใหม่อีกครั้ง</label>
+                <input id="pw-confirm" type="password" class="form-control" autocomplete="new-password" minlength="8" maxlength="72" required>
+                <p id="password-error" class="staff-error d-none" role="alert"></p>
+                <button class="btn btn-primary w-100 py-3 mt-3" type="submit">บันทึกรหัสผ่านใหม่</button>
+            </form>
+            <div class="staff-switch">
+                <button type="button" class="btn btn-outline-light w-100" data-view="login-view">กลับไปหน้าเข้าสู่ระบบ</button>
+            </div>
+        </section>
+
+        <section id="signup-view" class="d-none">
+            <h1>สมัครเป็นช่าง</h1>
+            <p class="staff-copy">สมัครแล้วรอ Rim อนุมัติก่อน จึงจะเข้าระบบได้</p>
+            <form id="signup-form">
+                <label for="su-name">ชื่อที่แสดงให้ลูกค้าเห็น</label>
+                <input id="su-name" class="form-control" placeholder="เช่น Ton" minlength="2" maxlength="40" required>
+                <label for="su-username">ชื่อผู้ใช้ (a-z และ 0-9)</label>
+                <input id="su-username" class="form-control" autocomplete="username" autocapitalize="none" placeholder="เช่น ton" pattern="[a-zA-Z0-9]{2,20}" maxlength="20" required>
+                <label for="su-password">รหัสผ่าน (อย่างน้อย 8 ตัว)</label>
+                <input id="su-password" type="password" class="form-control" autocomplete="new-password" minlength="8" maxlength="72" required>
+                <label for="su-confirm">พิมพ์รหัสผ่านอีกครั้ง</label>
+                <input id="su-confirm" type="password" class="form-control" autocomplete="new-password" minlength="8" maxlength="72" required>
+                <p id="signup-error" class="staff-error d-none" role="alert"></p>
+                <button class="btn btn-primary w-100 py-3 mt-3" type="submit">ส่งคำขอสมัคร</button>
+            </form>
+            <div class="staff-switch">
+                <button type="button" class="btn btn-outline-light w-100" data-view="login-view">กลับไปหน้าเข้าสู่ระบบ</button>
+            </div>
+        </section>
+
+        <section id="signup-done" class="d-none">
+            <h1>ส่งคำขอแล้ว</h1>
+            <p class="staff-copy">บอก Rim ให้เข้าไปกดอนุมัติที่หน้า "จัดการร้าน" อนุมัติแล้วเข้าสู่ระบบด้วยชื่อผู้ใช้และรหัสผ่านที่เพิ่งตั้งได้เลย</p>
+            <button type="button" class="btn btn-primary w-100 py-3" data-view="login-view">กลับไปหน้าเข้าสู่ระบบ</button>
+        </section>
     </div>
     <script src="../js/store.js"></script>
     <script src="login.js"></script>

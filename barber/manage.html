@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
     <meta charset="utf-8">
-    <title>จัดการช่าง | StreetMan Barber Phuket</title>
+    <title>จัดการร้าน | StreetMan Barber Phuket</title>
     <meta name="robots" content="noindex, nofollow">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#EB1616">
@@ -14,47 +14,113 @@
     <link href="../css/style.css" rel="stylesheet">
     <link href="queue.css" rel="stylesheet">
 </head>
-<body class="staff-body queue-body dash-body">
-    <header class="queue-top">
+<body class="staff-body queue-body dash-body has-staff-nav">
+<div class="staff-shell">
+    <aside id="staff-nav" class="staff-nav" data-page="manage" data-actions="notify"></aside>
+    <div class="staff-main">
+    <header class="queue-top page-head">
         <div>
-            <p class="staff-kicker mb-1">StreetMan Barber Phuket · เจ้าของร้าน</p>
-            <h1>จัดการช่าง</h1>
-            <p class="staff-copy mb-0">เพิ่มช่าง ตั้งรหัสผ่าน กำหนดวันหยุดประจำสัปดาห์ หรือสร้างบัญชีเครื่อง POS คนที่ปิดงานจะไม่ขึ้นให้ลูกค้าจอง</p>
-        </div>
-        <div class="queue-top-actions">
-            <a href="dashboard.html" class="btn btn-outline-light">กลับ Dashboard</a>
-            <button type="button" class="btn btn-outline-light" id="logout-btn">ออกจากระบบ</button>
+            <h1 id="mg-title">จัดการร้าน</h1>
         </div>
     </header>
     <div id="toast" class="queue-toast d-none"></div>
+    <nav class="mg-tabs" aria-label="หมวดการจัดการ">
+        <a href="#team" data-tab="team">👥 ทีมงาน<span class="mg-badge d-none" id="tab-badge-team"></span></a>
+        <a href="#menu" data-tab="menu">🧾 เมนูและราคา</a>
+        <a href="#money" data-tab="money">💳 รับเงิน<span class="mg-badge d-none" id="tab-badge-money"></span></a>
+        <a href="#shop" data-tab="shop">🏪 ร้าน</a>
+    </nav>
     <main class="queue-wrap dash-wrap">
+        <div class="mg-tab" data-tab="team" hidden>
         <section class="summary-panel">
-            <h2>สถานะร้าน</h2>
-            <p class="staff-copy" id="shop-status-copy">ร้านเปิดรับจองออนไลน์อยู่</p>
-            <button type="button" class="btn btn-outline-light" id="shop-close-btn">ปิดร้าน</button>
+            <h2>🙋 คำขอสมัครรออนุมัติ <span class="pending-count d-none" id="pending-count"></span></h2>
+            <p class="staff-copy">ช่างสมัครเองจากหน้าเข้าสู่ระบบ แล้วรออนุมัติที่นี่</p>
+            <div id="pending-list"></div>
         </section>
         <section class="summary-panel">
-            <h2>เพิ่มช่างใหม่</h2>
-            <form id="add-form" class="manage-form">
-                <input class="form-control" id="new-name" placeholder="ชื่อที่แสดง เช่น Ton" required maxlength="40">
-                <input class="form-control" id="new-username" placeholder="ชื่อเข้าสู่ระบบ เช่น ton" required maxlength="20">
-                <input class="form-control" id="new-password" type="password" placeholder="รหัสผ่านอย่างน้อย 6 ตัว" required minlength="6">
-                <button class="btn btn-primary py-3" type="submit">เพิ่มช่าง</button>
-            </form>
+            <h2>💈 ช่างและบัญชี</h2>
+            <p class="staff-copy">แก้ชื่อ ตั้งรหัสชั่วคราว วันหยุดประจำสัปดาห์ หรือปิดงาน (คนที่ปิดงานจะไม่ขึ้นให้ลูกค้าจอง)</p>
+            <div id="staff-list"></div>
         </section>
         <section class="summary-panel">
-            <h2>สร้างบัญชีเครื่อง POS</h2>
-            <p class="staff-copy">บัญชีนี้ใช้คิดเงินหน้าร้านอย่างเดียว เข้าหน้าคิวและรายได้ไม่ได้ มีบัญชี <strong>pos</strong> อยู่แล้ว เพิ่มได้ถ้ามีเครื่องคิดเงินอีกเครื่อง</p>
+            <h2>🖥️ เพิ่มบัญชีเครื่อง POS</h2>
+            <p class="staff-copy">สำหรับเครื่องคิดเงินเครื่องที่ 2 ขึ้นไป (มีบัญชี <strong>pos</strong> อยู่แล้ว) ใช้คิดเงินได้อย่างเดียว</p>
             <form id="add-pos-form" class="manage-form">
                 <input class="form-control" id="pos-name" placeholder="ชื่อที่แสดง เช่น เคาน์เตอร์ 2" value="เคาน์เตอร์" required maxlength="40">
                 <input class="form-control" id="pos-username" placeholder="ชื่อเข้าสู่ระบบ เช่น pos2" required maxlength="20">
-                <input class="form-control" id="pos-password" type="password" placeholder="รหัสผ่านอย่างน้อย 6 ตัว" required minlength="6">
+                <input class="form-control" id="pos-password" type="password" placeholder="รหัสผ่านอย่างน้อย 8 ตัว" required minlength="8" autocomplete="new-password">
                 <button class="btn btn-primary py-3" type="submit">สร้างบัญชี POS</button>
             </form>
         </section>
-        <section id="staff-list"></section>
+        </div>
+        <div class="mg-tab" data-tab="menu" hidden>
+        <section class="summary-panel">
+            <h2>🧾 เมนูและราคา</h2>
+            <p class="staff-copy">แก้แล้วขึ้นหน้าเว็บจอง หน้าราคา และเครื่อง POS ทันที · บิลเก่าใช้ราคาเดิม</p>
+            <div id="svc-list"></div>
+            <h3 class="manage-subhead">➕ เพิ่มบริการใหม่</h3>
+            <form id="svc-add" class="svc-row svc-new">
+                <div class="svc-grid">
+                    <label>ชื่อ (ไทย)<input class="form-control" name="name" required maxlength="60" placeholder="เช่น สระไดร์"></label>
+                    <label>ชื่อ (อังกฤษ)<input class="form-control" name="name_en" maxlength="60" placeholder="Wash & Blow-dry"></label>
+                    <label>ราคา (บาท)<input class="form-control" name="price" type="number" min="0" max="100000" required inputmode="numeric"></label>
+                    <label>ใช้เวลา<select class="form-control" name="minutes"></select></label>
+                    <label class="svc-wide">รายละเอียดสั้นๆ (ไทย)<input class="form-control" name="note" maxlength="120" placeholder="ไม่บังคับ"></label>
+                    <label class="svc-wide">รายละเอียดสั้นๆ (อังกฤษ)<input class="form-control" name="note_en" maxlength="120" placeholder="Optional"></label>
+                </div>
+                <button class="btn btn-primary" type="submit">เพิ่มบริการ</button>
+            </form>
+        </section>
+        </div>
+        <div class="mg-tab" data-tab="money" hidden>
+        <section class="summary-panel">
+            <h2>📲 QR รับเงินโอน</h2>
+            <p class="staff-copy">ใส่พร้อมเพย์ของร้าน แล้วตอนกด "โอน / QR" ที่ POS จะขึ้น QR ที่มียอดเงินอยู่แล้ว ลูกค้าสแกนแล้วกดยืนยันได้เลย ไม่ต้องพิมพ์ยอดเอง</p>
+            <form id="promptpay-form" class="manage-form promptpay-form">
+                <input class="form-control" id="promptpay-id" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="เบอร์มือถือ หรือเลขบัตรประชาชน / เลขผู้เสียภาษี">
+                <button class="btn btn-primary" type="submit">บันทึกพร้อมเพย์</button>
+            </form>
+            <p class="queue-meta" id="promptpay-status"></p>
+            <p class="staff-copy mt-3">ถ้ายังไม่ใส่พร้อมเพย์ ระบบจะใช้รูป QR ด้านล่างแทน (ลูกค้าต้องพิมพ์ยอดเอง)</p>
+            <div class="payment-qr-box">
+                <img id="payment-qr-preview" class="payment-qr-preview" src="../img/qr-promptpay.png" alt="QR รับเงินโอนของร้าน">
+                <div class="payment-qr-side">
+                    <p class="queue-meta" id="payment-qr-status">กำลังโหลด…</p>
+                    <input type="file" id="payment-qr-file" accept="image/png,image/jpeg,image/webp" class="d-none">
+                    <div class="manage-actions">
+                        <button type="button" class="btn btn-primary" id="payment-qr-upload">อัปโหลด QR ใหม่</button>
+                        <button type="button" class="btn btn-outline-light d-none" id="payment-qr-remove">ใช้ QR เดิม</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section class="summary-panel">
+            <h2>🔐 แก้ไขบิลที่คิดเงินผิด</h2>
+            <p class="staff-copy">สร้างรหัสให้เคาน์เตอร์ใช้แก้บิลที่จ่ายแล้ว · ใช้ได้ครั้งเดียว · หมดอายุใน 15 นาที</p>
+            <button type="button" class="btn btn-primary" id="approval-code-btn">สร้างรหัสอ้างอิง</button>
+            <div id="approval-code-box" class="approval-code-box d-none">
+                <p class="approval-code" id="approval-code"></p>
+                <p class="queue-meta mb-0" id="approval-code-expiry"></p>
+            </div>
+            <h3 class="manage-subhead">ประวัติการแก้ไขบิล <span class="pending-count d-none" id="bill-review-count"></span></h3>
+            <p class="staff-copy">บิลที่เคาน์เตอร์แก้ตอนติดต่อเจ้าของร้านไม่ได้จะขึ้นเป็น "รอตรวจ" ถ้ากดไม่อนุมัติ บิลจะกลับเป็นยอดเดิม</p>
+            <div id="bill-edit-list"></div>
+        </section>
+        </div>
+        <div class="mg-tab" data-tab="shop" hidden>
+        <section class="summary-panel">
+            <h2>🏪 รับจองออนไลน์</h2>
+            <p class="staff-copy" id="shop-status-copy">ร้านเปิดรับจองออนไลน์อยู่</p>
+            <button type="button" class="btn btn-outline-light" id="shop-close-btn">ปิดร้าน</button>
+        </section>
+        </div>
     </main>
+    </div>
+</div>
     <script src="../js/store.js"></script>
+    <script src="../js/promptpay.js"></script>
+    <script src="nav.js"></script>
     <script src="manage.js"></script>
+    <script src="push-client.js"></script>
 </body>
 </html>

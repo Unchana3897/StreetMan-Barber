@@ -1,23 +1,25 @@
 (function () {
     "use strict";
 
-    var SERVICES = {
-        haircut: "ตัดผม",
-        beard: "ตกแต่งเครา",
-        shave: "โกนหนวด",
-        dye: "ย้อมผม",
-        mustache: "ตกแต่งหนวด",
-        stacking: "เซ็ตทรง"
-    };
-    var PRICES = {
-        haircut: 300,
-        beard: 200,
-        shave: 200,
-        dye: 150,
-        mustache: 500,
-        stacking: 1000
-    };
-    var SERVICE_ORDER = ["haircut", "beard", "shave", "dye", "mustache", "stacking"];
+    // Menu comes from the server (owner edits it on "จัดการช่าง").
+    var SERVICES = {};
+    var PRICES = {};
+    var SERVICE_ORDER = [];
+
+    async function loadMenu() {
+        window.StreetManStore._services = null;
+        var list = await window.StreetManStore.services(true);
+        SERVICES = {};
+        PRICES = {};
+        SERVICE_ORDER = [];
+        list.forEach(function (svc) {
+            SERVICES[svc.id] = svc.name;
+            PRICES[svc.id] = svc.price;
+            if (svc.active) {
+                SERVICE_ORDER.push(svc.id);
+            }
+        });
+    }
 
     var STATUS = {
         pending: "รอรับ",
@@ -120,29 +122,45 @@
 
     function setNotifyBtn(text, enabled) {
         var btn = document.getElementById("notify-btn");
-        btn.textContent = text;
+        (btn.querySelector("span") || btn).textContent = text;
         btn.disabled = !enabled;
+        if (text.indexOf("เปิดแล้ว") !== -1) {
+            document.getElementById("push-hint").classList.add("d-none");
+        }
+    }
+
+    var HINT_KEY = "sm_push_hint_hidden";
+
+    function showPushHint(text) {
+        try {
+            if (window.localStorage.getItem(HINT_KEY) === "1") {
+                return;
+            }
+        } catch (err) {}
+        var hint = document.getElementById("push-hint");
+        hint.innerHTML = "<span></span><button type=\"button\" class=\"push-hint-close\" aria-label=\"ซ่อนคำแนะนำ\">&times;</button>";
+        hint.querySelector("span").textContent = text;
+        hint.querySelector("button").addEventListener("click", function () {
+            hint.classList.add("d-none");
+            try { window.localStorage.setItem(HINT_KEY, "1"); } catch (err) {}
+        });
+        hint.classList.remove("d-none");
     }
 
     function renderPushHint() {
-        var hint = document.getElementById("push-hint");
         if (window.StreetManStore && window.StreetManStore.onGitHubPages()) {
-            hint.textContent = "เปิดหน้านี้ค้างไว้บนมือถือ คิวใหม่จะเด้งที่นี่ แนะนำให้เพิ่มไปยังหน้าจอโฮม";
-            hint.classList.remove("d-none");
+            showPushHint("เปิดหน้านี้ค้างไว้บนมือถือ คิวใหม่จะเด้งที่นี่ แนะนำให้เพิ่มไปยังหน้าจอโฮม");
             return;
         }
         if (isIos() && !isStandalone()) {
-            hint.textContent = "iPhone: กดแชร์ → เพิ่มไปยังหน้าจอโฮม แล้วเปิดแอปคิวช่างจากไอคอน แล้วค่อยกดเปิดแจ้งเตือนมือถือ";
-            hint.classList.remove("d-none");
+            showPushHint("iPhone: กดแชร์ → เพิ่มไปยังหน้าจอโฮม แล้วเปิดแอปคิวช่างจากไอคอน แล้วค่อยกดเปิดแจ้งเตือนในเมนู");
             return;
         }
         if (!window.isSecureContext || !("serviceWorker" in navigator) || !("PushManager" in window)) {
-            hint.textContent = "การแจ้งเตือนมือถือใช้ได้เมื่อเปิดร้านผ่าน HTTPS (หรือ localhost) บน Chrome / Safari ที่รองรับ";
-            hint.classList.remove("d-none");
+            showPushHint("การแจ้งเตือนมือถือใช้ได้เมื่อเปิดร้านผ่าน HTTPS (หรือ localhost) บน Chrome / Safari ที่รองรับ");
             return;
         }
-        hint.textContent = "กดเปิดแจ้งเตือน แล้วเปิดแอปคิวช่างค้างไว้ (อย่าปัดปิด) แตะหน้าจอหนึ่งครั้ง เสียงกีตาร์จะดังได้ตอนล็อกจอ อย่าปิดเสียงเครื่อง";
-        hint.classList.remove("d-none");
+        showPushHint("กดเปิดแจ้งเตือนในเมนู แล้วเปิดแอปคิวช่างค้างไว้ (อย่าปัดปิด) แตะหน้าจอหนึ่งครั้ง เสียงกีตาร์จะดังได้ตอนล็อกจอ อย่าปิดเสียงเครื่อง");
     }
 
     async function registerWorker() {
@@ -422,7 +440,7 @@
             btn.innerHTML = "<small></small><strong></strong><span></span>";
             btn.querySelector("small").textContent = weekdayLabel(day.date);
             btn.querySelector("strong").textContent = Number(day.date.slice(8, 10));
-            btn.querySelector("span").textContent = day.count ? day.count + " คิว" : "ว่าง";
+            btn.querySelector("span").textContent = day.count ? day.count + " คิว" : "\u00a0";
             btn.addEventListener("click", function () {
                 dateEl.value = day.date;
                 load();
@@ -465,8 +483,8 @@
         nextEl.querySelector(".queue-time").textContent = timeRange(booking);
         nextEl.querySelector("h2").textContent = booking.customer_name;
         nextEl.querySelector(".queue-meta").textContent =
-            (SERVICES[booking.service] || booking.service) +
-            " " + baht(PRICES[booking.service] || 0) +
+            (booking.service_name || SERVICES[booking.service] || booking.service) +
+            " " + baht(bookedPrice(booking)) +
             " · " + booking.phone +
             (booking.note ? " · " + booking.note : "");
         nextEl.querySelector(".queue-meta").parentNode.appendChild(extrasPanel(booking));
@@ -476,7 +494,7 @@
             actions.appendChild(actionBtn("รับคิว", "confirmed", booking.id));
         }
         if (booking.status === "confirmed") {
-            actions.appendChild(actionBtn("เสร็จแล้ว", "done", booking.id));
+            actions.appendChild(doneBtn(booking));
         }
         actions.appendChild(contactButtons(booking));
         nextEl.appendChild(actions);
@@ -504,10 +522,12 @@
             card.querySelector(".queue-time").textContent = timeRange(row);
             card.querySelector("strong").textContent = row.customer_name;
             card.querySelector(".queue-meta").textContent =
-                (SERVICES[row.service] || row.service) +
-                " " + baht(PRICES[row.service] || 0) +
+                (row.service_name || SERVICES[row.service] || row.service) +
+                " " + baht(bookedPrice(row)) +
                 (row.note ? " · " + row.note : "");
-            card.querySelector(".queue-status").textContent = STATUS[row.status] || row.status;
+            card.querySelector(".queue-status").textContent = row.status === "done"
+                ? (row.payment_method ? "จ่ายแล้ว" : "รอคิดเงิน")
+                : (STATUS[row.status] || row.status);
             card.children[1].appendChild(extrasPanel(row));
 
             var actions = card.querySelector(".queue-actions");
@@ -515,7 +535,7 @@
                 actions.appendChild(actionBtn("รับคิว", "confirmed", row.id));
             }
             if (row.status === "confirmed") {
-                actions.appendChild(actionBtn("เสร็จแล้ว", "done", row.id));
+                actions.appendChild(doneBtn(row));
             }
             if (row.status === "pending" || row.status === "confirmed") {
                 actions.appendChild(actionBtn("ยกเลิก", "cancelled", row.id));
@@ -532,11 +552,11 @@
             return wrap;
         }
         var extras = row.extras || [];
-        var total = row.amount != null ? row.amount : (PRICES[row.service] || 0);
+        var total = row.amount != null ? row.amount : bookedPrice(row);
         var amount = document.createElement("p");
         amount.className = "queue-amount mb-2";
         amount.textContent = extras.length
-            ? "จอง " + baht(PRICES[row.service] || 0) + " + เพิ่ม " + baht(row.extra_total || 0) + " = " + baht(total)
+            ? "จอง " + baht(bookedPrice(row)) + " + เพิ่ม " + baht(row.extra_total || 0) + " = " + baht(total)
             : "ยอดจอง " + baht(total);
         wrap.appendChild(amount);
         var hint = document.createElement("p");
@@ -560,6 +580,25 @@
         return wrap;
     }
 
+    // "Done" opens at the booked date and time, not before.
+    function bookingStarted(row) {
+        var parts = bangkokParts();
+        var nowDate = parts.year + "-" + parts.month + "-" + parts.day;
+        var nowTime = parts.hour + ":" + parts.minute;
+        return row.date < nowDate || (row.date === nowDate && String(row.time) <= nowTime);
+    }
+
+    function doneBtn(row) {
+        if (bookingStarted(row)) {
+            return actionBtn("ตัดเสร็จ · ส่งคิดเงิน", "done", row.id);
+        }
+        var bits = String(row.date).split("-");
+        var btn = actionBtn("ตัดเสร็จได้ตั้งแต่ " + bits[2] + "/" + bits[1] + " " + row.time + " น.", "done", row.id);
+        btn.disabled = true;
+        btn.className = "btn btn-sm btn-outline-light";
+        return btn;
+    }
+
     function actionBtn(label, status, id) {
         var btn = document.createElement("button");
         btn.type = "button";
@@ -575,15 +614,7 @@
         latest = data;
         document.getElementById("barber-name").textContent = "คิวของ " + data.barber.name;
         renderStats(data.stats);
-        var owner = isOwner(data.barber);
-        var manage = document.getElementById("manage-link");
-        if (manage) {
-            manage.classList.toggle("d-none", !owner);
-        }
-        var pos = document.getElementById("pos-link");
-        if (pos) {
-            pos.classList.add("d-none");
-        }
+        document.getElementById("today-btn").classList.toggle("d-none", data.date === todayISO());
         renderWeek(data.upcoming, data.date);
         renderDayOff(data);
         renderHours(data.hours);
@@ -712,8 +743,9 @@
         if (!btn) {
             return;
         }
-        btn.className = (status.closed ? "btn btn-primary" : "btn btn-outline-light") + (owner ? "" : " d-none");
-        btn.textContent = status.closed ? "เปิดรับจอง" : "ปิดร้าน";
+        btn.classList.toggle("d-none", !owner);
+        btn.classList.toggle("is-closed", Boolean(status.closed));
+        btn.querySelector("span").textContent = status.closed ? "เปิดรับจองอีกครั้ง" : "ปิดร้าน";
     }
 
     async function toggleShop() {
@@ -754,15 +786,30 @@
     }
 
     async function updateStatus(id, status) {
-        await api("/api/barber/bookings/" + id, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: status })
-        });
+        try {
+            await api("/api/barber/bookings/" + id, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: status })
+            });
+        } catch (err) {
+            var code = err && (err.body && err.body.error || err.message);
+            showToast(code === "too_early" ? "ยังไม่ถึงเวลาที่ลูกค้าจอง กดตัดเสร็จได้เมื่อถึงเวลาจอง" : "บันทึกไม่สำเร็จ ลองอีกครั้ง");
+            load();
+            return;
+        }
+        if (status === "done") {
+            showToast("ส่งไปคิดเงินที่เคาน์เตอร์แล้ว");
+        }
         load();
     }
 
+    function bookedPrice(row) {
+        return row.items && row.items.length ? row.items[0].price : (PRICES[row.service] || 0);
+    }
+
     async function load() {
+        try { await loadMenu(); } catch (err) {}
         var data = await api("/api/barber/dashboard?date=" + encodeURIComponent(dateEl.value || todayISO()));
         render(data);
     }
@@ -787,7 +834,7 @@
         }
         queueNotice(
             "StreetMan Barber Phuket — คิวใหม่",
-            booking.customer_name + " · " + booking.time + " · " + (SERVICES[booking.service] || booking.service)
+            booking.customer_name + " · " + booking.time + " · " + (booking.service_name || SERVICES[booking.service] || booking.service)
         );
         load();
     }
@@ -816,10 +863,6 @@
         document.getElementById("today-btn").addEventListener("click", function () {
             dateEl.value = todayISO();
             load();
-        });
-        document.getElementById("refresh-btn").addEventListener("click", function () {
-            load();
-            showToast("รีเฟรชคิวแล้ว");
         });
         document.getElementById("prev-day").addEventListener("click", function () {
             dateEl.value = addDays(dateEl.value || todayISO(), -1);

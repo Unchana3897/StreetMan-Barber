@@ -76,8 +76,10 @@
     function fillCard(el, title, period) {
         el.querySelector("span").textContent = title;
         el.querySelector("strong").textContent = baht(period.revenue);
-        el.querySelector(".day-rev").textContent = "ตัดเสร็จ " + (period.done || 0) + " คน";
+        el.querySelector(".day-rev").textContent = "ตัดเสร็จ " + (period.done || 0) + " คน" +
+            (period.uncollected ? " · ยังไม่ได้คิดเงิน " + (period.uncollected_count || 0) + " คิว " + baht(period.uncollected) : "");
     }
+
 
     function sourcesOf(period) {
         return (period && period.sources) || {
@@ -86,16 +88,6 @@
         };
     }
 
-    function fillSourceRow(wrap, label, periods, date) {
-        wrap.innerHTML =
-            "<article class=\"summary-card\"><span></span><strong></strong><span class=\"day-rev\"></span></article>" +
-            "<article class=\"summary-card\"><span></span><strong></strong><span class=\"day-rev\"></span></article>" +
-            "<article class=\"summary-card\"><span></span><strong></strong><span class=\"day-rev\"></span></article>";
-        var cards = wrap.querySelectorAll(".summary-card");
-        fillCard(cards[0], label + " · วันนี้", periods.day);
-        fillCard(cards[1], label + " · สัปดาห์นี้", periods.week);
-        fillCard(cards[2], label + " · " + monthLabel((periods.monthKey) || date), periods.month);
-    }
 
     function renderCards(data) {
         var wrap = document.getElementById("income-cards");
@@ -148,6 +140,9 @@
         }), data.date);
     }
 
+    var shopPeriod = "day";
+    var lastShopData = null;
+
     function renderShop(data) {
         var el = document.getElementById("shop-income");
         var link = document.getElementById("manage-link");
@@ -166,64 +161,83 @@
             el.innerHTML = "";
             return;
         }
+        lastShopData = data;
+        el.className = "shop-panel inc";
         var shop = data.shop;
-        var rows = (shop.barbers || []).map(function () {
-            return "<tr><td><strong></strong><span></span></td><td></td><td></td><td></td></tr>";
+        var period = shop[shopPeriod] || {};
+        var src = sourcesOf(period);
+        var PERIODS = [["day", "วันนี้"], ["week", "สัปดาห์"], ["month", "เดือน"]];
+        var periodLabel = shopPeriod === "day"
+            ? "วันที่ " + thaiDate(data.date)
+            : shopPeriod === "week"
+                ? shortDay(shop.week.from) + " – " + shortDay(shop.week.to)
+                : monthLabel((shop.month && shop.month.key) || data.date);
+
+        var tabs = PERIODS.map(function (p) {
+            return "<button type=\"button\" class=\"inc-tab" + (p[0] === shopPeriod ? " is-on" : "") + "\" data-period=\"" + p[0] + "\">" + p[1] + "</button>";
         }).join("");
-        el.className = "shop-panel";
+
+        // Money in: cash / transfer / not yet charged, as one stacked bar plus tiles.
+        var cash = period.cash || 0, transfer = period.transfer || 0, unpaid = period.uncollected || 0;
+        var moneyTotal = cash + transfer + unpaid || 1;
+        var seg = function (cls, value) {
+            return value ? "<i class=\"" + cls + "\" style=\"width:" + (value / moneyTotal * 100).toFixed(1) + "%\"></i>" : "";
+        };
+        var tile = function (cls, emoji, label, amount, note) {
+            return "<div class=\"inc-tile " + cls + "\"><span class=\"inc-tile-label\">" + emoji + " " + label + "</span>" +
+                "<strong>" + baht(amount) + "</strong><span class=\"inc-tile-note\">" + note + "</span></div>";
+        };
+        var money =
+            "<div class=\"inc-bar\">" + seg("is-cash", cash) + seg("is-transfer", transfer) + seg("is-unpaid", unpaid) + "</div>" +
+            "<div class=\"inc-tiles\">" +
+            tile("is-cash", "💵", "เงินสด", cash, (period.cash_count || 0) + " บิล") +
+            tile("is-transfer", "📲", "โอน / QR", transfer, (period.transfer_count || 0) + " บิล") +
+            (unpaid ? tile("is-unpaid", "⏳", "ค้างเก็บ", unpaid, (period.uncollected_count || 0) + " คิว") : "") +
+            "</div>";
+
+        var walkin = src.shop || {}, online = src.online || {};
+        var channelTotal = (walkin.revenue || 0) + (online.revenue || 0) || 1;
+        var channels =
+            "<div class=\"inc-bar\">" +
+            ((walkin.revenue || 0) ? "<i class=\"is-walkin\" style=\"width:" + ((walkin.revenue || 0) / channelTotal * 100).toFixed(1) + "%\"></i>" : "") +
+            ((online.revenue || 0) ? "<i class=\"is-online\" style=\"width:" + ((online.revenue || 0) / channelTotal * 100).toFixed(1) + "%\"></i>" : "") +
+            "</div>" +
+            "<div class=\"inc-tiles\">" +
+            tile("is-walkin", "🚶", "หน้าร้าน", walkin.revenue || 0, (walkin.done || 0) + " หัว") +
+            tile("is-online", "🌐", "จองออนไลน์", online.revenue || 0, (online.done || 0) + " หัว") +
+            "</div>";
+
+        // Barbers ranked by takings for the chosen period.
+        var barbers = (shop.barbers || []).map(function (b) {
+            return { name: b.name, active: b.active, deleted: b.deleted, me: b.id === data.barber.id, p: b[shopPeriod] || {} };
+        }).sort(function (a, b) { return (b.p.revenue || 0) - (a.p.revenue || 0); });
+        var top = (barbers[0] && barbers[0].p.revenue) || 1;
+        var MEDALS = ["🥇", "🥈", "🥉"];
+        var rank = barbers.map(function (b, i) {
+            var rev = b.p.revenue || 0;
+            return "<li class=\"inc-rank-row" + (b.active ? "" : " is-off") + "\">" +
+                "<span class=\"inc-rank-pos\">" + (rev && MEDALS[i] ? MEDALS[i] : (i + 1)) + "</span>" +
+                "<div class=\"inc-rank-body\"><div class=\"inc-rank-top\"><b></b><strong>" + baht(rev) + "</strong></div>" +
+                "<div class=\"inc-rank-track\"><i style=\"width:" + (rev / top * 100).toFixed(1) + "%\"></i></div>" +
+                "<span class=\"inc-rank-note\">✂️ " + (b.p.done || 0) + " หัว" +
+                (b.p.uncollected ? " · ⏳ ค้าง " + baht(b.p.uncollected) : "") + (b.deleted ? " · ลบบัญชีแล้ว" : b.active ? "" : " · ปิดงาน") + "</span></div></li>";
+        }).join("");
+
         el.innerHTML =
-            "<h2>ยอดทั้งร้าน</h2>" +
-            "<p class=\"staff-copy\">รวมคิวที่ตัดเสร็จแล้วทั้งวอล์กอินหน้าร้านและจองออนไลน์</p>" +
-            "<div class=\"summary-grid is-3\" id=\"shop-cards\"></div>" +
-            "<h2 class=\"mt-4\">หน้าร้าน · วอล์กอิน</h2>" +
-            "<p class=\"staff-copy\">คิดเงินที่เครื่อง POS ไม่ได้จองผ่านเว็บ</p>" +
-            "<div class=\"summary-grid is-3\" id=\"source-shop-cards\"></div>" +
-            "<h2 class=\"mt-4\">จองออนไลน์</h2>" +
-            "<p class=\"staff-copy\">ลูกค้าจองผ่านเว็บ แม้จะจ่ายที่ร้านก็ตาม</p>" +
-            "<div class=\"summary-grid is-3\" id=\"source-online-cards\"></div>" +
-            "<h2 class=\"mt-4\">เปรียบเทียบช่าง · เดือนนี้</h2>" +
-            "<div class=\"chart-bars is-people\" id=\"shop-chart\"></div>" +
-            "<table class=\"shop-table\"><thead><tr><th>ช่าง</th><th>วันนี้</th><th>สัปดาห์</th><th>เดือน</th></tr></thead><tbody>" +
-            rows + "</tbody></table>";
-        var cards = el.querySelector("#shop-cards");
-        cards.innerHTML =
-            "<article class=\"summary-card\"><span>วันนี้ทั้งร้าน</span><strong></strong><span class=\"day-rev\"></span></article>" +
-            "<article class=\"summary-card\"><span>สัปดาห์นี้ทั้งร้าน</span><strong></strong><span class=\"day-rev\"></span></article>" +
-            "<article class=\"summary-card\"><span>เดือนนี้ทั้งร้าน</span><strong></strong><span class=\"day-rev\"></span></article>";
-        var shopCards = cards.querySelectorAll(".summary-card");
-        fillCard(shopCards[0], "วันนี้ทั้งร้าน", shop.day);
-        fillCard(shopCards[1], "สัปดาห์นี้ทั้งร้าน", shop.week);
-        fillCard(shopCards[2], monthLabel((shop.month && shop.month.key) || data.date) + " ทั้งร้าน", shop.month);
-        fillSourceRow(el.querySelector("#source-shop-cards"), "หน้าร้าน", {
-            day: sourcesOf(shop.day).shop,
-            week: sourcesOf(shop.week).shop,
-            month: sourcesOf(shop.month).shop,
-            monthKey: shop.month && shop.month.key
-        }, data.date);
-        fillSourceRow(el.querySelector("#source-online-cards"), "จองออนไลน์", {
-            day: sourcesOf(shop.day).online,
-            week: sourcesOf(shop.week).online,
-            month: sourcesOf(shop.month).online,
-            monthKey: shop.month && shop.month.key
-        }, data.date);
-        renderBars(el.querySelector("#shop-chart"), (shop.barbers || []).map(function (row) {
-            return {
-                key: row.id,
-                label: row.name,
-                value: (row.month && row.month.revenue) || 0
-            };
-        }), data.barber.id);
-        var bodyRows = el.querySelectorAll("tbody tr");
-        (shop.barbers || []).forEach(function (row, index) {
-            var tr = bodyRows[index];
-            if (!tr) {
-                return;
-            }
-            tr.querySelector("strong").textContent = row.name;
-            tr.querySelector("span").textContent = (row.active ? "" : "ปิดงาน · ") + row.username;
-            tr.children[1].innerHTML = (row.day.done || 0) + " คน<br><span>" + baht(row.day.revenue) + "</span>";
-            tr.children[2].innerHTML = (row.week.done || 0) + " คน<br><span>" + baht(row.week.revenue) + "</span>";
-            tr.children[3].innerHTML = (row.month.done || 0) + " คน<br><span>" + baht(row.month.revenue) + "</span>";
+            "<div class=\"inc-head\"><h2>🏪 ยอดทั้งร้าน</h2><div class=\"inc-tabs\">" + tabs + "</div></div>" +
+            "<div class=\"inc-hero\"><span>" + periodLabel + "</span><strong>" + baht(period.revenue || 0) + "</strong>" +
+            "<em>✂️ " + (period.done || 0) + " หัว</em></div>" +
+            "<h3 class=\"inc-h\">💰 เงินเข้า</h3>" + money +
+            "<h3 class=\"inc-h\">🧭 ช่องทาง</h3>" + channels +
+            "<h3 class=\"inc-h\">💈 ช่าง</h3><ol class=\"inc-rank\">" + rank + "</ol>";
+        el.querySelectorAll(".inc-rank-row b").forEach(function (nameEl, i) {
+            nameEl.textContent = barbers[i].name + (barbers[i].me ? " (คุณ)" : "");
+        });
+        el.querySelectorAll(".inc-tab").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                shopPeriod = btn.getAttribute("data-period");
+                renderShop(lastShopData);
+            });
         });
     }
 

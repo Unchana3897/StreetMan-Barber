@@ -1,37 +1,57 @@
 (function () {
     "use strict";
 
-    var BARBERS = {
-        rim: "Rim",
-        bank: "Bank",
-        rick: "Rick",
-        dee: "Dee",
-        pos: "เคาน์เตอร์"
-    };
-    var PASSWORD = "StreetMan2026";
-    var form = document.getElementById("login-form");
-    var error = document.getElementById("login-error");
+    var Store = window.StreetManStore;
+    var views = ["login-view", "password-view", "signup-view", "signup-done"];
 
-    function showError(message) {
-        error.textContent = message;
-        error.classList.remove("d-none");
+    function show(id) {
+        views.forEach(function (view) {
+            document.getElementById(view).classList.toggle("d-none", view !== id);
+        });
+        ["login-error", "password-error", "signup-error"].forEach(function (el) {
+            document.getElementById(el).classList.add("d-none");
+        });
     }
 
-    function localLogin(username, password) {
-        username = String(username || "").trim().toLowerCase();
-        password = String(password || "").trim();
-        if (!BARBERS[username] || password !== PASSWORD) {
-            throw new Error("bad_login");
+    function showError(id, message) {
+        var el = document.getElementById(id);
+        el.textContent = message;
+        el.classList.remove("d-none");
+    }
+
+    function errorCode(err) {
+        return (err && err.body && err.body.error) || (err && err.message) || "";
+    }
+
+    function errorText(err) {
+        var code = errorCode(err);
+        if (err && err.status === 429) {
+            return code === "too_many_pending"
+                ? "มีคำขอสมัครรออนุมัติเยอะแล้ว ให้ Rim อนุมัติก่อนแล้วค่อยสมัครใหม่"
+                : "ลองบ่อยเกินไป รอ 15 นาทีแล้วลองใหม่";
         }
-        var barber = {
-            id: username,
-            name: BARBERS[username],
-            username: username,
-            role: username === "rim" ? "owner" : (username === "pos" ? "cashier" : "barber")
-        };
-        window.sessionStorage.setItem("sm_barber_session", JSON.stringify(barber));
-        window.localStorage.setItem("sm_barber_session", JSON.stringify(barber));
-        return barber;
+        if (code === "bad_login" || (err && err.status === 401)) {
+            return "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูก";
+        }
+        if (code === "pending_approval") {
+            return "บัญชีนี้ยังรอ Rim อนุมัติ";
+        }
+        if (code === "weak_password") {
+            return "รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัว ห้ามซ้ำกับรหัสเดิม ชื่อผู้ใช้ หรือรหัสเก่าของร้าน";
+        }
+        if (code === "username_taken") {
+            return "ชื่อผู้ใช้นี้มีคนใช้แล้ว ลองชื่ออื่น";
+        }
+        if (code === "bad_username") {
+            return "ชื่อผู้ใช้ใช้ได้แค่ a-z และ 0-9 ความยาว 2–20 ตัว";
+        }
+        if (code === "bad_name") {
+            return "กรอกชื่อที่แสดง 2–40 ตัว";
+        }
+        if (code === "server_required") {
+            return "ระบบช่างใช้ได้เฉพาะบนเว็บหลักของร้าน";
+        }
+        return "เชื่อมต่อร้านไม่สำเร็จ ลองอีกครั้ง";
     }
 
     function goNext(barber) {
@@ -46,37 +66,74 @@
         window.location.href = next;
     }
 
-    form.addEventListener("submit", async function (e) {
+    document.querySelectorAll("[data-view]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            if (btn.getAttribute("data-view") === "password-view") {
+                document.getElementById("pw-username").value = document.getElementById("username").value;
+                document.getElementById("password-copy").textContent =
+                    "กรอกรหัสผ่านเดิมและรหัสผ่านใหม่ เปลี่ยนแล้วเครื่องอื่นที่เคยล็อกอินไว้จะออกจากระบบ";
+            }
+            show(btn.getAttribute("data-view"));
+        });
+    });
+
+    document.getElementById("login-form").addEventListener("submit", async function (e) {
         e.preventDefault();
-        error.classList.add("d-none");
+        show("login-view");
         var username = document.getElementById("username").value;
         var password = document.getElementById("password").value;
         try {
-            var barber;
-            if (window.StreetManStore && window.StreetManStore.login) {
-                barber = await window.StreetManStore.login(username, password);
-            } else {
-                barber = localLogin(username, password);
-            }
-            goNext(barber);
+            goNext(await Store.login(username, password));
         } catch (err) {
-            if (err && err.status === 429) {
-                showError("ลองบ่อยเกินไป รอสักครู่แล้วเข้าใหม่");
+            if (errorCode(err) === "password_change_required") {
+                // Old shared or temporary password: send them straight to the change form.
+                document.getElementById("pw-username").value = username;
+                document.getElementById("pw-current").value = password;
+                show("password-view");
+                document.getElementById("password-copy").textContent =
+                    "ต้องตั้งรหัสผ่านใหม่ก่อนเข้าใช้งาน (รหัสเดิมเป็นรหัสชั่วคราวหรือรหัสเก่าของร้าน)";
+                document.getElementById("pw-new").focus();
                 return;
             }
-            if (err && (err.message === "bad_login" || err.status === 401)) {
-                showError("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูก");
-                return;
-            }
-            if (/\.github\.io$/i.test(window.location.hostname)) {
-                try {
-                    goNext(localLogin(username, password));
-                } catch (fallbackErr) {
-                    showError("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูก");
-                }
-                return;
-            }
-            showError("เชื่อมต่อร้านไม่สำเร็จ ลองอีกครั้ง");
+            showError("login-error", errorText(err));
+        }
+    });
+
+    document.getElementById("password-form").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        var next = document.getElementById("pw-new").value;
+        if (next !== document.getElementById("pw-confirm").value) {
+            showError("password-error", "รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน");
+            return;
+        }
+        try {
+            goNext(await Store.changePassword(
+                document.getElementById("pw-username").value,
+                document.getElementById("pw-current").value,
+                next
+            ));
+        } catch (err) {
+            showError("password-error", errorText(err));
+        }
+    });
+
+    document.getElementById("signup-form").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        var password = document.getElementById("su-password").value;
+        if (password !== document.getElementById("su-confirm").value) {
+            showError("signup-error", "รหัสผ่านทั้งสองช่องไม่ตรงกัน");
+            return;
+        }
+        try {
+            await Store.register({
+                name: document.getElementById("su-name").value,
+                username: document.getElementById("su-username").value,
+                password: password
+            });
+            e.target.reset();
+            show("signup-done");
+        } catch (err) {
+            showError("signup-error", errorText(err));
         }
     });
 })();

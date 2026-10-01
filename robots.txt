@@ -5,4 +5,20 @@ Disallow: /api/
 Disallow: /cancel.html
 Disallow: /cancel
 
+# AI search and assistant crawlers are welcome to read and cite the public pages.
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Google-Extended
+User-agent: Bingbot
+Allow: /
+Disallow: /barber
+Disallow: /api/
+Disallow: /cancel.html
+Disallow: /cancel
+
 Sitemap: https://streeetmanbarberphuket.shop/sitemap.xml

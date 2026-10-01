@@ -7,7 +7,6 @@
     var SHOP_KEY = "sm_shop";
     var HOURS_KEY = "sm_barber_hours";
     var PEER_PREFIX = "streetman-phuket-";
-    var DEFAULT_PASSWORD = "StreetMan2026";
     var BARBERS = [
         { id: "rim", name: "Rim", username: "rim" },
         { id: "bank", name: "Bank", username: "bank" },
@@ -175,7 +174,6 @@
                 username: row.username,
                 role: row.id === "rim" ? "owner" : (row.role || "barber"),
                 active: true,
-                password: DEFAULT_PASSWORD,
                 day_off: null
             };
         });
@@ -189,7 +187,6 @@
                 username: row.username || row.id,
                 role: row.id === "rim" ? "owner" : (row.role || "barber"),
                 active: row.active !== false,
-                password: row.password || DEFAULT_PASSWORD,
                 day_off: parseDayOff(row.day_off)
             };
         });
@@ -574,6 +571,15 @@
         return false;
     }
 
+    // Staff accounts only exist on the server; the offline demo mode has no logins.
+    async function requireServer() {
+        if (!(await usingNode())) {
+            var error = new Error("server_required");
+            error.status = 503;
+            throw error;
+        }
+    }
+
     async function nodeFetch(url, options) {
         options = options || {};
         var next = Object.assign({ credentials: "same-origin" }, options);
@@ -757,32 +763,47 @@
         },
         login: async function (username, password) {
             username = String(username || "").trim().toLowerCase();
-            password = String(password || "").trim();
-            if (await usingNode()) {
-                var data = await nodeFetch("/api/login", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ username: username, password: password })
-                });
-                setSession(data.barber);
-                return data.barber;
-            }
-            var barber = readStaff().filter(function (row) {
-                return row.username === username && row.active !== false;
-            })[0];
-            if (!barber || password !== (barber.password || DEFAULT_PASSWORD)) {
-                var error = new Error("bad_login");
-                error.status = 401;
-                throw error;
-            }
-            setSession({
-                id: barber.id,
-                name: barber.name,
-                username: barber.username,
-                role: barber.role || "barber",
-                day_off: parseDayOff(barber.day_off)
+            password = String(password || "");
+            await requireServer();
+            var data = await nodeFetch("/api/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: username, password: password })
             });
-            return getSession();
+            setSession(data.barber);
+            return data.barber;
+        },
+        changePassword: async function (username, currentPassword, newPassword) {
+            await requireServer();
+            var data = await nodeFetch("/api/password", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    username: String(username || "").trim().toLowerCase(),
+                    current_password: String(currentPassword || ""),
+                    new_password: String(newPassword || "")
+                })
+            });
+            setSession(data.barber);
+            return data.barber;
+        },
+        register: async function (payload) {
+            await requireServer();
+            return nodeFetch("/api/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: String(payload.name || "").trim(),
+                    username: String(payload.username || "").trim().toLowerCase(),
+                    password: String(payload.password || "")
+                })
+            });
+        },
+        reviewStaff: async function (id, action) {
+            await requireServer();
+            return nodeFetch("/api/owner/barbers/" + encodeURIComponent(id) + "/" + (action === "approve" ? "approve" : "reject"), {
+                method: "POST"
+            });
         },
         logout: async function () {
             var session = getSession();
@@ -1089,8 +1110,8 @@
                 barber: me,
                 date: date,
                 barbers: chairs,
-                open: rows.filter(function (row) { return row.status === "pending" || row.status === "confirmed"; }),
-                paid: rows.filter(function (row) { return row.status === "done"; })
+                open: rows.filter(function (row) { return row.status === "pending" || row.status === "confirmed" || (row.status === "done" && !row.payment_method); }),
+                paid: rows.filter(function (row) { return row.status === "done" && row.payment_method; })
             };
         },
         payBooking: async function (id, payload) {
@@ -1208,6 +1229,111 @@
                 closed: payload.closed,
                 note: payload.note
             });
+        },
+        // Payment QR shown on POS receipts. Stored on the server only.
+        paymentQrUrl: function (version) {
+            return "/api/shop/payment-qr" + (version ? "?v=" + encodeURIComponent(version) : "");
+        },
+        setPaymentQr: async function (dataUrl) {
+            await requireServer();
+            var data = await nodeFetch("/api/owner/payment-qr", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ image: dataUrl })
+            });
+            return data.shop || data;
+        },
+        // Services / prices (owner edits them). Cached for the page's lifetime.
+        services: async function (all) {
+            if (!(await usingNode())) {
+                // Offline demo mode (no server): the built-in menu.
+                var names = { haircut: "ตัดผม", beard: "ตกแต่งเครา", shave: "โกนหนวด", dye: "ย้อมผม", mustache: "ตกแต่งหนวด", stacking: "เซ็ตทรง / Stacking" };
+                return Object.keys(PRICES).map(function (id, i) {
+                    return { id: id, name: names[id] || id, name_en: id, note: "", note_en: "", price: PRICES[id], minutes: SLOT_COUNT[id] * 30, slots: SLOT_COUNT[id], last: LAST_SLOT[id], active: true, sort: i + 1 };
+                });
+            }
+            var key = all ? "all" : "active";
+            Store._services = Store._services || {};
+            if (!Store._services[key]) {
+                Store._services[key] = fetch("/api/services" + (all ? "?all=1" : ""), { credentials: "same-origin" })
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) { return data.services || []; })
+                    .catch(function (err) { Store._services[key] = null; throw err; });
+            }
+            return Store._services[key];
+        },
+        ownerServices: async function () {
+            await requireServer();
+            var data = await nodeFetch("/api/owner/services");
+            return data.services || [];
+        },
+        saveService: async function (id, payload) {
+            await requireServer();
+            Store._services = null;
+            return nodeFetch(id ? "/api/owner/services/" + encodeURIComponent(id) : "/api/owner/services", {
+                method: id ? "PATCH" : "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+        },
+        moveService: async function (id, dir) {
+            await requireServer();
+            Store._services = null;
+            return nodeFetch("/api/owner/services/" + encodeURIComponent(id) + "/move", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ dir: dir })
+            });
+        },
+        deleteService: async function (id) {
+            await requireServer();
+            Store._services = null;
+            return nodeFetch("/api/owner/services/" + encodeURIComponent(id), { method: "DELETE" });
+        },
+        deleteStaff: async function (id) {
+            await requireServer();
+            return nodeFetch("/api/owner/barbers/" + encodeURIComponent(id), { method: "DELETE" });
+        },
+        // Fixing a paid bill: the owner makes a one-time code, the POS uses it.
+        createApprovalCode: async function () {
+            await requireServer();
+            return nodeFetch("/api/owner/approval-codes", { method: "POST" });
+        },
+        listBillEdits: async function () {
+            await requireServer();
+            var data = await nodeFetch("/api/owner/bill-edits");
+            return data.edits || [];
+        },
+        reviewBillEdit: async function (id, action) {
+            await requireServer();
+            return nodeFetch("/api/owner/bill-edits/" + id + "/" + action, { method: "POST" });
+        },
+        editBill: async function (id, payload) {
+            await requireServer();
+            return nodeFetch("/api/barber/bookings/" + id + "/edit", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+        },
+        getPromptPay: async function () {
+            await requireServer();
+            var data = await nodeFetch("/api/owner/promptpay");
+            return data.promptpay || "";
+        },
+        setPromptPay: async function (id) {
+            await requireServer();
+            var data = await nodeFetch("/api/owner/promptpay", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ promptpay: id })
+            });
+            return data.promptpay || "";
+        },
+        removePaymentQr: async function () {
+            await requireServer();
+            var data = await nodeFetch("/api/owner/payment-qr", { method: "DELETE" });
+            return data.shop || data;
         },
         availableSlots: async function (service, date, barber) {
             if (await usingNode()) {

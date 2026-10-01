@@ -2,6 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { buildLanguagePages } = require("./i18n-pages");
 
 const root = path.resolve(__dirname, "..");
 const output = path.join(root, "dist");
@@ -13,6 +14,7 @@ const extensions = new Set([
     ".woff", ".woff2", ".ttf", ".eot", ".otf", ".mp3", ".wav"
 ]);
 const assets = [];
+
 
 function collect(relative) {
     const source = path.join(root, relative);
@@ -33,14 +35,39 @@ for (const entry of fs.readdirSync(root)) {
 }
 for (const entry of [...directories, ...files]) collect(entry);
 
-// Only clear the generated directory at this fixed path inside the project.
+// Update dist/ in place instead of deleting it first: a running `wrangler dev`
+// serves from this folder and breaks (Safari then offers to "download" pages)
+// if the folder disappears, even for a moment.
 if (fs.existsSync(output) && fs.lstatSync(output).isSymbolicLink()) {
     throw new Error("Refusing to replace a symlink at dist");
 }
-fs.rmSync(output, { recursive: true, force: true });
+fs.mkdirSync(output, { recursive: true });
 for (const relative of assets) {
+    const source = path.join(root, relative);
     const target = path.join(output, relative);
     fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.copyFileSync(path.join(root, relative), target);
+    const same = fs.existsSync(target) && fs.statSync(target).size === fs.statSync(source).size &&
+        fs.readFileSync(target).equals(fs.readFileSync(source));
+    if (!same) {
+        // Write to a temp name and rename, so a request never sees a half-written file.
+        const temp = target + ".tmp-build";
+        fs.copyFileSync(source, temp);
+        fs.renameSync(temp, target);
+    }
 }
-console.log(`Built ${assets.length} public assets in dist/`);
+const languagePages = buildLanguagePages(root, output);
+// Remove files that are no longer part of the site.
+const keep = new Set(assets.map((a) => path.join(output, a))
+    .concat(languagePages.flatMap((p) => [path.join(output, p), path.join(output, "en", p)])));
+(function prune(dir) {
+    for (const name of fs.readdirSync(dir)) {
+        const full = path.join(dir, name);
+        if (fs.lstatSync(full).isDirectory()) {
+            prune(full);
+            if (!fs.readdirSync(full).length) fs.rmdirSync(full);
+        } else if (!keep.has(full)) {
+            fs.rmSync(full);
+        }
+    }
+})(output);
+console.log(`Built ${assets.length} public assets in dist/ (+${languagePages.length} English pages in dist/en/)`);
