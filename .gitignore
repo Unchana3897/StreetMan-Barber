@@ -7,3 +7,7 @@ data/
 dist/
 .wrangler/
 .dev.vars
+
+# Database backups (customer data, password hashes): never commit
+backup*.sql
+*.sql.bak
