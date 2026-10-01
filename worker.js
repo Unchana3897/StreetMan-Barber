@@ -759,17 +759,23 @@ async function handleApi(request, env, url, ctx) {
       return json({ ok: true, booking: decorate(row, true) }, 201);
     } catch (_) { return json({ error: "slot_taken" }, 409); }
   }
+  // Same rules for the cancel page's lookup and the actual cancel.
+  const cancelCheck = (row) => row.status === "done" ? "already_done"
+    : row.status === "cancelled" ? "already_cancelled"
+    : new Date(`${row.date}T${String(row.time).slice(0, 5)}:00+07:00`).getTime() - Date.now() < 2 * 3600000 ? "too_late" : null;
   if (path === "/api/bookings/lookup" && method === "GET") {
     const token = String(url.searchParams.get("token") || "").toLowerCase().replace(/[^a-f0-9]/g, "");
     const row = token.length >= 12 ? await first(env, "SELECT b.*,br.name AS barber_name FROM bookings b JOIN barbers br ON br.id=b.barber_id WHERE b.cancel_token=?", token) : null;
-    return row ? json({ ok: true, booking: decorate({ ...row, phone: `******${String(row.phone).slice(-4)}` }) }) : json({ error: "not_found" }, 404);
+    if (!row) return json({ error: "not_found" }, 404);
+    const problem = cancelCheck(row);
+    return json({ ok: true, booking: { ...decorate({ ...row, phone: `******${String(row.phone).slice(-4)}` }), can_cancel: !problem, cancel_error: problem } });
   }
   if (path === "/api/bookings/cancel" && method === "POST") {
     const data = await body(request), token = String(data.token || "").toLowerCase().replace(/[^a-f0-9]/g, "");
     const row = token.length >= 12 ? await first(env, "SELECT * FROM bookings WHERE cancel_token=?", token) : null;
     if (!row) return json({ error: "not_found" }, 404);
-    if (row.status === "done" || row.status === "cancelled") return json({ error: row.status === "done" ? "already_done" : "already_cancelled" }, 409);
-    if (new Date(`${row.date}T${row.time}:00+07:00`).getTime() - Date.now() < 2 * 3600000) return json({ error: "too_late" }, 403);
+    const problem = cancelCheck(row);
+    if (problem) return json({ error: problem }, problem === "too_late" ? 403 : 409);
     await env.DB.prepare("UPDATE bookings SET status='cancelled' WHERE id=?").bind(row.id).run();
     await notify(env, ctx, [row.barber_id], { kind: "cancel", title: "ลูกค้ายกเลิกคิว " + shortDate(row.date) + " " + row.time,
       body: `${row.customer_name} · ${svcName(row.service)}`, url: "dashboard.html" });

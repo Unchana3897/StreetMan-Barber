@@ -54,6 +54,8 @@
             showAlert(true, t("cancel_already"));
         } else if (!booking.can_cancel && booking.cancel_error) {
             showAlert(false, errorMessage({ message: booking.cancel_error }));
+        } else {
+            alertEl.classList.add("d-none"); // clear "กำลังอ่านใบจองคิว…"
         }
     }
 
