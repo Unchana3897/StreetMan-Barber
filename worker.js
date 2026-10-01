@@ -273,8 +273,9 @@ async function listBarbers(env, activeOnly = false, chairsOnly = false, includeD
   let where = [];
   if (!includeDeleted) where.push("status != 'deleted'");
   if (activeOnly) where.push("active = 1", "status = 'approved'");
-  if (chairsOnly) where.push("role != 'cashier'");
-  const sql = `SELECT id,name,username,role,active,status,must_change_password,day_off FROM barbers${where.length ? ` WHERE ${where.join(" AND ")}` : ""} ORDER BY CASE WHEN role='owner' THEN 0 WHEN role='cashier' THEN 2 ELSE 1 END,name`;
+  // Chairs = people customers can book. Cashiers and system admins are not barbers.
+  if (chairsOnly) where.push("role NOT IN ('cashier','admin')");
+  const sql = `SELECT id,name,username,role,active,status,must_change_password,day_off FROM barbers${where.length ? ` WHERE ${where.join(" AND ")}` : ""} ORDER BY CASE WHEN role IN ('owner','admin') THEN 0 WHEN role='cashier' THEN 2 ELSE 1 END,name`;
   return (await all(env, sql)).map(publicBarber);
 }
 
@@ -480,7 +481,7 @@ async function notify(env, ctx, barberIds, message) {
 }
 
 async function ownerIds(env) {
-  return (await all(env, "SELECT id FROM barbers WHERE (role='owner' OR id='rim') AND active=1")).map((r) => r.id);
+  return (await all(env, "SELECT id FROM barbers WHERE (role IN ('owner','admin') OR id='rim') AND active=1")).map((r) => r.id);
 }
 
 async function cashierIds(env) {
@@ -608,11 +609,16 @@ function meObject(auth) {
   return { id: auth.barber_id, name: auth.name, username: auth.username, role: auth.role || "barber", day_off: parseDayOff(auth.day_off), token: auth.token };
 }
 
+function isOwnerAuth(auth) {
+  return Boolean(auth && (auth.role === "owner" || auth.role === "admin" || auth.barber_id === "rim"));
+}
+
 function requireRole(auth, role) {
   if (!auth) return json({ error: "login_required" }, 401);
   if (role === "chair" && auth.role === "cashier") return json({ error: "chair_required" }, 403);
-  if (role === "owner" && auth.role !== "owner" && auth.barber_id !== "rim") return json({ error: "owner_required" }, 403);
-  if (role === "pos" && auth.role !== "cashier" && auth.role !== "owner" && auth.barber_id !== "pos" && auth.barber_id !== "rim") return json({ error: "pos_required" }, 403);
+  // "admin" (ผู้ดูแลระบบ) has the owner's rights but is not a barber.
+  if (role === "owner" && !isOwnerAuth(auth)) return json({ error: "owner_required" }, 403);
+  if (role === "pos" && auth.role !== "cashier" && !isOwnerAuth(auth) && auth.barber_id !== "pos") return json({ error: "pos_required" }, 403);
   return null;
 }
 
@@ -854,13 +860,13 @@ async function handleApi(request, env, url, ctx) {
     const upcoming = Array.from({ length: 14 }, (_, i) => ({ date: addDays(now.date, i), count: counts.get(addDays(now.date, i)) || 0 }));
     const blocked = (await all(env, "SELECT slot FROM barber_blocks WHERE barber_id=? AND date=? ORDER BY slot", auth.barber_id, date)).map((r) => r.slot);
     const mine = await incomeFor(env, auth.barber_id, date);
-    return json({ barber: meObject(auth), date, now, stats, next: date === now.date ? active.find((r) => r.time >= now.time) || null : active[0] || null, bookings: rows, upcoming, summary: { day: mine.day, month: mine.month }, shop: auth.role === "owner" ? await shopSummary(env, date) : null, shop_status: await shopState(env), hours: { date, slots: TIME_SLOTS, blocked }, day_off: parseDayOff(auth.day_off) });
+    return json({ barber: meObject(auth), date, now, stats, next: date === now.date ? active.find((r) => r.time >= now.time) || null : active[0] || null, bookings: rows, upcoming, summary: { day: mine.day, month: mine.month }, shop: isOwnerAuth(auth) ? await shopSummary(env, date) : null, shop_status: await shopState(env), hours: { date, slots: TIME_SLOTS, blocked }, day_off: parseDayOff(auth.day_off) });
   }
   if (path === "/api/barber/income" && method === "GET") {
     const denied = requireRole(auth, "chair"); if (denied) return denied;
     const date = url.searchParams.get("date") || bangkokNow().date, mine = await incomeFor(env, auth.barber_id, date);
     let shop = null;
-    if (auth.role === "owner" || auth.barber_id === "rim") {
+    if (isOwnerAuth(auth)) {
       shop = await incomeFor(env, null, date);
       const chairs = await listBarbers(env, false, true, true);
       shop.barbers = (await Promise.all(chairs.map(async (b) => ({ id: b.id, name: b.name, username: b.username, active: b.active, deleted: b.status === "deleted", ...(await incomeFor(env, b.id, date)) }))))
@@ -1224,9 +1230,9 @@ async function handleApi(request, env, url, ctx) {
     if (existing.status === "pending") return json({ error: "pending_approval" }, 409);
     const data = await body(request), name = data.name != null ? String(data.name).trim().slice(0, 40) : existing.name;
     let active = data.active == null ? Number(existing.active) : (data.active === true || data.active === 1 || data.active === "1" ? 1 : 0);
-    if (["owner", "cashier"].includes(existing.role)) active = 1;
+    if (["owner", "admin", "cashier"].includes(existing.role)) active = 1;
     let dayOff = parseDayOff(existing.day_off);
-    if (Object.prototype.hasOwnProperty.call(data, "day_off")) { dayOff = existing.role === "cashier" ? null : parseDayOff(data.day_off); if (dayOff === undefined) return json({ error: "bad_day_off" }, 400); }
+    if (Object.prototype.hasOwnProperty.call(data, "day_off")) { dayOff = ["cashier", "admin"].includes(existing.role) ? null : parseDayOff(data.day_off); if (dayOff === undefined) return json({ error: "bad_day_off" }, 400); }
     const password = data.password ? String(data.password) : "";
     if (password && passwordProblem(password, existing.username)) return json({ error: "weak_password" }, 400);
     const hash = password ? await passwordHash(password) : existing.password_hash;

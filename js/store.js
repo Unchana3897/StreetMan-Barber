@@ -885,7 +885,7 @@
             date = date || bangkokNow().date;
             period = period === "week" ? "week" : "month";
             var me = await Store.me();
-            if (me.role !== "owner" && me.id !== "rim") {
+            if (me.role !== "owner" && me.role !== "admin" && me.id !== "rim") {
                 var denied = new Error("owner_required");
                 denied.status = 403;
                 throw denied;
@@ -1220,7 +1220,7 @@
                 }
             }
             var me = await Store.me();
-            if (me.role !== "owner" && me.id !== "rim") {
+            if (me.role !== "owner" && me.role !== "admin" && me.id !== "rim") {
                 var denied = new Error("owner_required");
                 denied.status = 403;
                 throw denied;
@@ -1437,7 +1437,7 @@
                 return data.barbers || [];
             }
             var me = await Store.me();
-            if (me.role !== "owner" && me.id !== "rim") {
+            if (me.role !== "owner" && me.role !== "admin" && me.id !== "rim") {
                 var denied = new Error("owner_required");
                 denied.status = 403;
                 throw denied;

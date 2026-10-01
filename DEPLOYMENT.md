@@ -51,6 +51,12 @@ database. Never run `scripts/dev-seed.sql` with `--remote`.
 
 ## Staff accounts
 
+- A system admin (role `admin`, "ผู้ดูแลระบบ") has the owner's rights but is not a
+  barber, so customers can't book them. Create one with
+  `node scripts/create-admin.js <username> "<name>" "<temporary password>" > .wrangler/admin.sql`
+  then `npx wrangler d1 execute streetman-barber-db --remote --file .wrangler/admin.sql`
+  and delete the file. The first login must set a new password.
+
 - Barbers sign up from the login page and wait for Rim to approve them on
   the "จัดการช่าง" page. Rim still creates POS (cashier) accounts directly.
 - Anyone can change their password from the login page. A password Rim sets

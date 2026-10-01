@@ -111,12 +111,13 @@
         wrap.querySelector(".queue-meta").textContent =
             "เข้าสู่ระบบ: " + barber.username +
             (barber.role === "owner" ? " · เจ้าของร้าน" : "") +
+            (barber.role === "admin" ? " · ผู้ดูแลระบบ" : "") +
             (barber.role === "cashier" ? " · เคาน์เตอร์คิดเงิน" : "") +
             (barber.active ? "" : " · ปิดงานอยู่") +
             (barber.must_change_password ? " · ต้องตั้งรหัสใหม่ตอนเข้าระบบครั้งถัดไป" : "");
         wrap.querySelector("[data-field='name']").value = barber.name;
 
-        if (barber.role !== "cashier") {
+        if (barber.role !== "cashier" && barber.role !== "admin") {
             var dayLabel = document.createElement("label");
             dayLabel.className = "manage-dayoff-label";
             dayLabel.textContent = "วันหยุดประจำสัปดาห์";
@@ -153,7 +154,7 @@
         });
         actions.appendChild(save);
 
-        if (barber.role !== "owner" && barber.role !== "cashier") {
+        if (barber.role !== "owner" && barber.role !== "cashier" && barber.role !== "admin") {
             var toggle = document.createElement("button");
             toggle.type = "button";
             toggle.className = "btn btn-outline-light";
@@ -170,7 +171,8 @@
             actions.appendChild(toggle);
         }
 
-        if (barber.role !== "owner") {
+        var me = window.StreetManStore.getSession && window.StreetManStore.getSession();
+        if (barber.role !== "owner" && !(me && me.id === barber.id)) {
             var del = document.createElement("button");
             del.type = "button";
             del.className = "btn btn-outline-light manage-delete";
@@ -666,7 +668,7 @@
     });
 
     window.StreetManStore.me().then(function (barber) {
-        if (!barber || (barber.role !== "owner" && barber.id !== "rim")) {
+        if (!barber || (barber.role !== "owner" && barber.role !== "admin" && barber.id !== "rim")) {
             window.location.href = "dashboard.html";
             return;
         }

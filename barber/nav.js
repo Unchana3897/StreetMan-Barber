@@ -11,7 +11,7 @@
     var actions = (mount.getAttribute("data-actions") || "").split(/\s+/);
     var store = window.StreetManStore;
     var me = store && store.getSession ? store.getSession() : null;
-    var owner = Boolean(me && (me.role === "owner" || me.id === "rim"));
+    var owner = Boolean(me && (me.role === "owner" || me.role === "admin" || me.id === "rim"));
     var onDashboard = page === "queue";
 
     var ITEMS = [

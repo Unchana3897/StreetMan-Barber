@@ -60,6 +60,8 @@
         window.sessionStorage.removeItem("sm_after_login");
         if (cashier) {
             next = "pos.html";
+        } else if (barber && barber.role === "admin" && String(next).indexOf("dashboard.html") === 0) {
+            next = "manage.html"; // admins are not barbers: start on the shop management page
         } else if (String(next).indexOf("pos.html") !== -1) {
             next = "dashboard.html";
         }

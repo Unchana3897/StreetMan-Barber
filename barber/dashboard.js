@@ -413,7 +413,7 @@
     }
 
     function isOwner(barber) {
-        return barber && (barber.role === "owner" || barber.id === "rim");
+        return barber && (barber.role === "owner" || barber.role === "admin" || barber.id === "rim");
     }
 
     function timeRange(row) {
