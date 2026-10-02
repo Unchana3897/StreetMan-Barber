@@ -1256,10 +1256,13 @@ export default {
     const url = new URL(request.url);
     try {
       const host = url.hostname.toLowerCase();
-      if (host === "www.streeetmanbarberphuket.shop" || host.endsWith(".workers.dev")) {
+      // Canonical host. The old misspelled domain (3 e's) and www/workers.dev all 301 here.
+      const CANONICAL_HOST = "streetmanbarberphuket.shop";
+      const OLD_HOSTS = ["www.streetmanbarberphuket.shop", "streeetmanbarberphuket.shop", "www.streeetmanbarberphuket.shop"];
+      if (OLD_HOSTS.includes(host) || host.endsWith(".workers.dev")) {
         const target = new URL(request.url);
         target.protocol = "https:";
-        target.host = "streeetmanbarberphuket.shop";
+        target.host = CANONICAL_HOST;
         if (target.pathname === "/index.html") target.pathname = "/";
         else if (target.pathname.endsWith(".html")) target.pathname = target.pathname.slice(0, -5);
         return Response.redirect(target.toString(), 301);

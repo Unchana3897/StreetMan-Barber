@@ -21,4 +21,4 @@ Disallow: /api/
 Disallow: /cancel.html
 Disallow: /cancel
 
-Sitemap: https://streeetmanbarberphuket.shop/sitemap.xml
+Sitemap: https://streetmanbarberphuket.shop/sitemap.xml

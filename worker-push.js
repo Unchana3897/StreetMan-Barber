@@ -66,7 +66,7 @@ export async function vapidAuthorization(env, endpoint) {
   const claims = b64uEncode(encoder.encode(JSON.stringify({
     aud: new URL(endpoint).origin,
     exp: Math.floor(Date.now() / 1000) + 12 * 3600,
-    sub: env.VAPID_SUBJECT || "mailto:owner@streeetmanbarberphuket.shop"
+    sub: env.VAPID_SUBJECT || "mailto:owner@streetmanbarberphuket.shop"
   })));
   const signature = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, await vapidKey(env), encoder.encode(`${header}.${claims}`)));
   return `vapid t=${header}.${claims}.${b64uEncode(signature)}, k=${env.VAPID_PUBLIC_KEY}`;

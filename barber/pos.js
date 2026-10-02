@@ -768,7 +768,7 @@
             "<img class=\"pos-slip-qr\" src=\"" + esc(window.StreetManStore.paymentQrUrl ? window.StreetManStore.paymentQrUrl() : "../img/qr-promptpay.png") + "\" alt=\"QR โอน\" onerror=\"this.onerror=null;this.src='../img/qr-promptpay.png'\">" +
             "<p class=\"pos-slip-info\">สแกนโอนเงิน</p>" +
             "<p class=\"pos-slip-info\">เปิดทุกวัน 11:00–20:00</p>" +
-            "<p class=\"pos-slip-info\">streeetmanbarberphuket.shop</p>" +
+            "<p class=\"pos-slip-info\">streetmanbarberphuket.shop</p>" +
             "<p class=\"pos-slip-sign\">ลงชื่อ................................</p>" +
             "<p class=\"pos-slip-thanks\">ขอบคุณที่ใช้บริการ</p>" +
             "</div>" +

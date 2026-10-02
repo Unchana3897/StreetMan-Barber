@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
-const origin = "https://streeetmanbarberphuket.shop";
+const origin = "https://streetmanbarberphuket.shop";
 const pages = {
   "index.html": {
     path: "/",

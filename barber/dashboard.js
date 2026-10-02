@@ -905,7 +905,10 @@
                 }
             });
         }
-        document.getElementById("shop-close-btn").addEventListener("click", toggleShop);
+        var shopCloseBtn = document.getElementById("shop-close-btn"); // moved to manage.html#shop
+        if (shopCloseBtn) {
+            shopCloseBtn.addEventListener("click", toggleShop);
+        }
         document.getElementById("hours-off").addEventListener("click", function () {
             var hours = latest && latest.hours;
             if (!hours) {

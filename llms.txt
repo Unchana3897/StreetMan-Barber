@@ -4,7 +4,7 @@
 
 ## Essential facts
 
-- Official website: https://streeetmanbarberphuket.shop/ (Thai) and https://streeetmanbarberphuket.shop/en/ (English)
+- Official website: https://streetmanbarberphuket.shop/ (Thai) and https://streetmanbarberphuket.shop/en/ (English)
 - Google Maps: https://maps.app.goo.gl/c3PuXbRd3GjW5eZE7
 - Open every day: 11:00–20:00
 - Last haircut appointment: 19:00; last Stacking appointment: 18:30
@@ -25,12 +25,12 @@
 
 ## Pages
 
-- [Book online](https://streeetmanbarberphuket.shop/en/book): choose service, barber, day and time
-- [Prices](https://streeetmanbarberphuket.shop/en/price): full price list and FAQ
-- [Services](https://streeetmanbarberphuket.shop/en/service): what each service includes
-- [Opening hours](https://streeetmanbarberphuket.shop/en/open)
-- [Map and contact](https://streeetmanbarberphuket.shop/en/contact)
-- [Barbers](https://streeetmanbarberphuket.shop/en/team)
-- Thai versions of every page are at the same path without /en (for example https://streeetmanbarberphuket.shop/price).
+- [Book online](https://streetmanbarberphuket.shop/en/book): choose service, barber, day and time
+- [Prices](https://streetmanbarberphuket.shop/en/price): full price list and FAQ
+- [Services](https://streetmanbarberphuket.shop/en/service): what each service includes
+- [Opening hours](https://streetmanbarberphuket.shop/en/open)
+- [Map and contact](https://streetmanbarberphuket.shop/en/contact)
+- [Barbers](https://streetmanbarberphuket.shop/en/team)
+- Thai versions of every page are at the same path without /en (for example https://streetmanbarberphuket.shop/price).
 
 The shop serves local residents, expatriates, and visitors in Wichit and Mueang Phuket. Information should be verified against the official pages above because availability can change.

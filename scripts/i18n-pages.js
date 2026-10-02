@@ -9,7 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const ORIGIN = "https://streeetmanbarberphuket.shop";
+const ORIGIN = "https://streetmanbarberphuket.shop";
 const LAST_UPDATED = "2026-10-01";
 // Pages that have an English twin under /en/. cancel switches language in place instead.
 const SLUGS = ["about", "service", "price", "team", "open", "contact", "testimonial", "book"];
@@ -162,7 +162,7 @@ function englishPage(html, page, en) {
     html = html.replace(/href="barber\//g, 'href="/barber/');
 
     html = html.replace(/("@type": "BarberShop",[\s\S]*?"description": ")[^"]*"/, `$1${PAGES["index.html"].description}"`);
-    html = html.replace(/("target": ")https:\/\/streeetmanbarberphuket\.shop\/book"/, `$1${ORIGIN}/en/book"`);
+    html = html.replace(/("target": ")https:\/\/streetmanbarberphuket\.shop\/book"/, `$1${ORIGIN}/en/book"`);
     return withSchema(html, [faqSchema(html, en), webPageSchema(url, "en")]);
 }
 
