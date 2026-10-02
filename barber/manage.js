@@ -84,6 +84,12 @@
         if (code === "last_service") {
             return "ต้องเหลือบริการที่แสดงบนเว็บอย่างน้อย 1 อย่าง";
         }
+        if (code === "bad_phone") {
+            return "เบอร์โทรต้องเป็นเบอร์ไทย 9–10 หลัก เช่น 065-691-0357";
+        }
+        if (code === "phone_required") {
+            return "ต้องมีเบอร์โทรอย่างน้อย 1 เบอร์";
+        }
         if (code === "bad_promptpay") {
             return "พร้อมเพย์ต้องเป็นเบอร์มือถือ 10 หลัก หรือเลข 13 หลัก";
         }
@@ -321,6 +327,45 @@
             showToast(saved ? "บันทึกพร้อมเพย์แล้ว" : "ลบพร้อมเพย์แล้ว");
         } catch (err) {
             showToast(errorText(err));
+        }
+    });
+
+    // ---- Shop contact numbers ----
+    var contactForm = document.getElementById("contact-form");
+    var contactStatus = document.getElementById("contact-status");
+
+    function renderContact(c) {
+        document.getElementById("contact-phone1").value = c.phone1_display || "";
+        document.getElementById("contact-phone2").value = c.phone2_display || "";
+        document.getElementById("contact-whatsapp").value = c.whatsapp_display || "";
+        var calls = [c.phone1_display, c.phone2_display].filter(Boolean).join(" / ");
+        contactStatus.textContent = "บนเว็บตอนนี้ · โทร " + (calls || "-") + " · WhatsApp " + (c.whatsapp_display || "-");
+    }
+
+    async function loadContact() {
+        try {
+            renderContact(await window.StreetManStore.getContact());
+        } catch (err) {
+            contactStatus.textContent = errorText(err);
+        }
+    }
+
+    contactForm.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        var payload = {
+            phone1: document.getElementById("contact-phone1").value.trim(),
+            phone2: document.getElementById("contact-phone2").value.trim(),
+            whatsapp: document.getElementById("contact-whatsapp").value.trim()
+        };
+        var btn = contactForm.querySelector("button[type=submit]");
+        btn.disabled = true;
+        try {
+            renderContact(await window.StreetManStore.setContact(payload));
+            showToast("บันทึกเบอร์ติดต่อแล้ว หน้าเว็บจะเปลี่ยนภายใน 1 นาที");
+        } catch (err) {
+            showToast(errorText(err));
+        } finally {
+            btn.disabled = false;
         }
     });
 
@@ -673,6 +718,7 @@
             return;
         }
         loadPromptPay();
+        loadContact();
         loadBillEdits();
         loadServices();
         return load();

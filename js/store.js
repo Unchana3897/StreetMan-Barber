@@ -1316,6 +1316,20 @@
                 body: JSON.stringify(payload)
             });
         },
+        getContact: async function () {
+            await requireServer();
+            var data = await nodeFetch("/api/owner/contact");
+            return data.contact || {};
+        },
+        setContact: async function (contact) {
+            await requireServer();
+            var data = await nodeFetch("/api/owner/contact", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(contact)
+            });
+            return data.contact || {};
+        },
         getPromptPay: async function () {
             await requireServer();
             var data = await nodeFetch("/api/owner/promptpay");

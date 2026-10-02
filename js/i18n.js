@@ -507,8 +507,20 @@
         return table[key] || (I18N.en[key] || key);
     }
 
+    // The server writes the shop's current WhatsApp number into every wa.me link,
+    // so read it from the page once (falls back to the built-in number).
+    var waFromPage = null;
+    function waNumber() {
+        if (waFromPage === null) {
+            var link = document.querySelector('a[href*="wa.me/"]');
+            var m = link && /wa\.me\/(\d{9,15})/.exec(link.getAttribute("href") || "");
+            waFromPage = m ? m[1] : "";
+        }
+        return waFromPage || WA_NUMBER;
+    }
+
     function waUrl(text) {
-        return "https://wa.me/" + WA_NUMBER + "?text=" + encodeURIComponent(text);
+        return "https://wa.me/" + waNumber() + "?text=" + encodeURIComponent(text);
     }
 
     function applyLang(lang) {

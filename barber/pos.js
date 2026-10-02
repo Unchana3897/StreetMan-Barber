@@ -137,6 +137,13 @@
     }
 
     // Barber pressed "done" but nobody has taken the money yet.
+    // Shop phone numbers for the receipt header (editable in จัดการร้าน → ร้าน).
+    function shopPhones() {
+        var c = (latest && latest.contact) || {};
+        var list = [c.phone1_display, c.phone2_display].filter(Boolean);
+        return list.length ? list.join(" / ") : "065-691-0357";
+    }
+
     function readyToPay(row) {
         return row.status === "done" && !row.payment_method;
     }
@@ -752,7 +759,7 @@
             "<p class=\"pos-slip-shop\">STREETMAN BARBER PHUKET</p>" +
             "<h2>" + (pending ? "บิลค่าบริการ" : "ใบเสร็จรับเงิน") + "</h2>" +
             "<p class=\"pos-slip-info\">19/82 หมู่ 2 ต.วิชิต อ.เมือง จ.ภูเก็ต 83000</p>" +
-            "<p class=\"pos-slip-info\">โทร 062-525-8941</p>" +
+            "<p class=\"pos-slip-info\">โทร " + esc(shopPhones()) + "</p>" +
             "<div class=\"pos-slip-rule\"></div>" +
             (row.id ? "<p>เลขที่ SM-" + esc(row.id) + "</p>" : "") +
             "<p>วันที่ " + esc(thaiWhen(row.date, row.time)) + "</p>" +

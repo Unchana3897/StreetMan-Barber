@@ -1521,3 +1521,8 @@ body.pos-printing .pos-paper {
 
 .manage-delete { color: #f87171 !important; border-color: #7f1d1d !important; }
 .manage-delete:hover { background: #7f1d1d !important; color: #fff !important; }
+
+/* Shop contact numbers (จัดการร้าน → ร้าน) */
+.contact-form { display: grid; grid-template-columns: 1fr; gap: 6px; max-width: 420px; }
+.contact-form .form-label { margin: 6px 0 0; color: #cfd2dc; font-size: .92rem; }
+.contact-form .btn { margin-top: 10px; justify-self: start; }

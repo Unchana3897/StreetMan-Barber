@@ -364,6 +364,76 @@ async function promptPayId(env) {
   return row ? normalizePromptPay(row.value) : "";
 }
 
+// ---- Shop contact numbers (editable in จัดการร้าน → ร้าน) ----
+// The static pages are built with these numbers; the worker swaps them for the
+// saved ones when HTML/llms.txt is served, so Google and visitors see the same.
+const DEFAULT_CONTACT = { phone1: "0656910357", phone2: "0999985457", whatsapp: "0625258941" };
+const CONTACT_KEYS = { phone1: "contact_phone1", phone2: "contact_phone2", whatsapp: "contact_whatsapp" };
+let contactCache = null;
+let contactCacheAt = 0;
+
+function normalizeThaiPhone(value) {
+  let digits = String(value || "").replace(/\D/g, "");
+  if (/^66\d{8,9}$/.test(digits)) digits = "0" + digits.slice(2);
+  return /^0\d{8,9}$/.test(digits) ? digits : "";
+}
+function phoneDisplay(d) {
+  if (!d) return "";
+  if (d.length === 9 && d.startsWith("02")) return `${d.slice(0, 2)}-${d.slice(2, 5)}-${d.slice(5)}`;
+  return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+}
+function phoneIntl(d) { return d ? "+66" + d.slice(1) : ""; }
+function phoneWa(d) { return d ? "66" + d.slice(1) : ""; }
+
+async function shopContact(env, fresh = false) {
+  if (!fresh && contactCache && Date.now() - contactCacheAt < 30000) return contactCache;
+  const rows = await all(env, "SELECT key,value FROM shop_settings WHERE key IN ('contact_phone1','contact_phone2','contact_whatsapp')");
+  const saved = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const out = {};
+  for (const [field, key] of Object.entries(CONTACT_KEYS)) {
+    out[field] = key in saved ? normalizeThaiPhone(saved[key]) : DEFAULT_CONTACT[field];
+  }
+  if (!out.phone1 && out.phone2) { out.phone1 = out.phone2; out.phone2 = ""; }
+  contactCache = out;
+  contactCacheAt = Date.now();
+  return out;
+}
+
+function contactPublic(c) {
+  return {
+    phone1: c.phone1, phone2: c.phone2, whatsapp: c.whatsapp,
+    phone1_display: phoneDisplay(c.phone1), phone2_display: phoneDisplay(c.phone2), whatsapp_display: phoneDisplay(c.whatsapp),
+    whatsapp_link: c.whatsapp ? "https://wa.me/" + phoneWa(c.whatsapp) : ""
+  };
+}
+
+function contactIsDefault(c) {
+  return c.phone1 === DEFAULT_CONTACT.phone1 && c.phone2 === DEFAULT_CONTACT.phone2 && c.whatsapp === DEFAULT_CONTACT.whatsapp;
+}
+
+// One pass, so a number can never be replaced twice.
+function applyContact(text, c) {
+  const d = DEFAULT_CONTACT;
+  if (!c.phone2) {
+    text = text.replace(/\s*<span class="sm-phone2">[\s\S]*?<\/a><\/span>/g, "");
+    text = text.split(" / " + phoneDisplay(d.phone2)).join("");
+  }
+  const map = new Map();
+  const add = (from, to) => { if (from && to && !map.has(from)) map.set(from, to); };
+  const p1 = c.phone1 || c.whatsapp;
+  add("tel:" + d.phone1, "tel:" + p1);
+  add(phoneDisplay(d.phone1), phoneDisplay(p1));
+  add(phoneIntl(d.phone1), phoneIntl(p1));
+  if (c.phone2) {
+    add("tel:" + d.phone2, "tel:" + c.phone2);
+    add(phoneDisplay(d.phone2), phoneDisplay(c.phone2));
+  }
+  add("wa.me/" + phoneWa(d.whatsapp), "wa.me/" + phoneWa(c.whatsapp || p1));
+  add(phoneDisplay(d.whatsapp), phoneDisplay(c.whatsapp || p1));
+  const pattern = new RegExp([...map.keys()].map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "g");
+  return text.replace(pattern, (m) => map.get(m));
+}
+
 const APPROVAL_CODE_MS = 15 * 60 * 1000;
 const EDIT_CODE_FAIL_LIMIT = 5;
 const EDIT_CODE_WINDOW_MS = 15 * 60 * 1000;
@@ -730,6 +800,9 @@ async function handleApi(request, env, url, ctx) {
     const output = slotsFor(service).filter((slot) => !isPast(date, slot) && hasAvailableBarber(context, barber, date, slot, service));
     return json({ date, slots: output, closed: false, note: state.note });
   }
+  if (path === "/api/contact" && method === "GET") {
+    return json({ contact: contactPublic(await shopContact(env)) });
+  }
   if (path === "/api/bookings" && method === "POST") {
     const data = await body(request);
     const name = String(data.customer_name || data.name || "").trim();
@@ -937,7 +1010,7 @@ async function handleApi(request, env, url, ctx) {
     const paid = (await bookingsBetween(env, null, date, date)).filter((r) => r.status === "done" && r.payment_method).map(decorate);
     const edits = await lastEdits(env, paid.map((r) => r.id));
     paid.forEach((r) => { if (edits[r.id]) r.last_edit = edits[r.id]; });
-    return json({ barber: meObject(auth), date, today, barbers: await listBarbers(env, true, true), open: unpaid.concat(live).map(decorate), paid, promptpay: await promptPayId(env) });
+    return json({ barber: meObject(auth), date, today, barbers: await listBarbers(env, true, true), open: unpaid.concat(live).map(decorate), paid, promptpay: await promptPayId(env), contact: contactPublic(await shopContact(env)) });
   }
   const billEdit = path.match(/^\/api\/barber\/bookings\/(\d+)\/edit$/);
   if (billEdit && method === "POST") {
@@ -1137,6 +1210,26 @@ async function handleApi(request, env, url, ctx) {
     await loadServices(env);
     return json({ ok: true, service: publicService(SERVICES[id]) });
   }
+  if (path === "/api/owner/contact" && method === "GET") {
+    const denied = requireRole(auth, "owner"); if (denied) return denied;
+    return json({ contact: contactPublic(await shopContact(env, true)) });
+  }
+  if (path === "/api/owner/contact" && (method === "PUT" || method === "POST")) {
+    const denied = requireRole(auth, "owner"); if (denied) return denied;
+    const data = await body(request);
+    const clean = {};
+    for (const field of Object.keys(CONTACT_KEYS)) {
+      const raw = String(data[field] || "").trim();
+      clean[field] = raw ? normalizeThaiPhone(raw) : "";
+      if (raw && !clean[field]) return json({ error: "bad_phone", field }, 400);
+    }
+    if (!clean.phone1 && !clean.phone2) return json({ error: "phone_required" }, 400);
+    if (!clean.phone1) { clean.phone1 = clean.phone2; clean.phone2 = ""; }
+    await env.DB.batch(Object.entries(CONTACT_KEYS).map(([field, key]) =>
+      env.DB.prepare("INSERT INTO shop_settings (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(key, clean[field])));
+    contactCache = null;
+    return json({ ok: true, contact: contactPublic(await shopContact(env, true)) });
+  }
   if (path === "/api/owner/promptpay" && method === "GET") {
     const denied = requireRole(auth, "owner"); if (denied) return denied;
     return json({ promptpay: await promptPayId(env) });
@@ -1273,8 +1366,18 @@ export default {
       }
       if (url.pathname.startsWith("/api/")) return await handleApi(request, env, url, ctx);
       if (url.pathname === "/barber" || url.pathname === "/barber/") return Response.redirect(`${url.origin}/barber/login.html`, 302);
-      const response = await env.ASSETS.fetch(request);
+      let response = await env.ASSETS.fetch(request);
       const headers = new Headers(response.headers);
+      const type = headers.get("Content-Type") || "";
+      if (response.status === 200 && !url.pathname.startsWith("/barber/") && (type.includes("text/html") || url.pathname === "/llms.txt")) {
+        const contact = await shopContact(env);
+        if (!contactIsDefault(contact)) {
+          const text = applyContact(await response.text(), contact);
+          headers.delete("ETag");
+          headers.delete("Content-Length");
+          response = new Response(text, response);
+        }
+      }
       headers.set("X-Content-Type-Options", "nosniff");
       headers.set("X-Frame-Options", "DENY");
       headers.set("Referrer-Policy", "strict-origin-when-cross-origin");

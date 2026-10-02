@@ -113,6 +113,20 @@
             <p class="staff-copy" id="shop-status-copy">ร้านเปิดรับจองออนไลน์อยู่</p>
             <button type="button" class="btn btn-outline-light" id="shop-close-btn">ปิดร้าน</button>
         </section>
+        <section class="summary-panel">
+            <h2>📞 เบอร์ติดต่อร้าน</h2>
+            <p class="staff-copy">แสดงบนหน้าเว็บทุกหน้า (ปุ่มโทร · ปุ่ม WhatsApp · ท้ายเว็บ) ข้อมูลที่ Google อ่าน และหัวใบเสร็จ POS</p>
+            <form id="contact-form" class="manage-form contact-form">
+                <label class="form-label" for="contact-phone1">📱 เบอร์โทรหลัก</label>
+                <input class="form-control" id="contact-phone1" inputmode="tel" autocomplete="off" maxlength="16" placeholder="เช่น 065-691-0357">
+                <label class="form-label" for="contact-phone2">📱 เบอร์โทรสำรอง <span class="queue-meta">(ไม่บังคับ · เว้นว่างถ้าไม่มี)</span></label>
+                <input class="form-control" id="contact-phone2" inputmode="tel" autocomplete="off" maxlength="16" placeholder="เช่น 099-998-5457">
+                <label class="form-label" for="contact-whatsapp">💬 เบอร์ WhatsApp</label>
+                <input class="form-control" id="contact-whatsapp" inputmode="tel" autocomplete="off" maxlength="16" placeholder="เช่น 062-525-8941">
+                <button class="btn btn-primary" type="submit">บันทึกเบอร์ติดต่อ</button>
+            </form>
+            <p class="queue-meta" id="contact-status"></p>
+        </section>
         </div>
     </main>
     </div>
