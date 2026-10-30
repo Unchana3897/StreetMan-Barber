@@ -8,26 +8,25 @@
 
     var LAST_SLOT = {
         haircut: "19:00",
-        beard: "19:30",
-        shave: "19:30",
-        dye: "19:30",
-        mustache: "19:30",
-        stacking: "18:30"
+        beard: "19:00",
+        shave: "19:00",
+        dye: "19:00",
+        mustache: "19:00",
+        stacking: "18:00"
     };
 
     var SLOT_COUNT = {
-        haircut: 2,
+        haircut: 1,
         beard: 1,
         shave: 1,
         dye: 1,
         mustache: 1,
-        stacking: 3
+        stacking: 2
     };
 
     var TIME_SLOTS = [
-        "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
-        "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
-        "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"
+        "11:00", "12:00", "13:00", "14:00", "15:00",
+        "16:00", "17:00", "18:00", "19:00"
     ];
 
     var serviceEl = document.getElementById("service");

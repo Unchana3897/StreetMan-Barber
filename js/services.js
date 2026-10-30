@@ -24,7 +24,7 @@
             parts.push(note);
         }
         parts.push(l === "th" ? "ประมาณ " + svc.minutes + " นาที" : "about " + svc.minutes + " min");
-        if (svc.last && svc.last !== "19:30") {
+        if (svc.last && svc.last !== "19:00") {
             parts.push(l === "th" ? "คิวสุดท้าย " + svc.last : "last slot " + svc.last);
         }
         var text = parts.join(" · ");

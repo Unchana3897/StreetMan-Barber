@@ -63,7 +63,7 @@
             faq_q2: "ตัดผมราคาเท่าไร?",
             faq_a2: "ตัดผม 300 บาท ตกแต่งเครา 200 บาท โกนหนวด 200 บาท ราคาทุกบริการแสดงในหน้าราคาก่อนจอง",
             faq_q3: "ร้านเปิดวันไหนและกี่โมง?",
-            faq_a3: "เปิดทุกวัน 11:00–20:00 คิวตัดผมสุดท้าย 19:00 และ Stacking สุดท้าย 18:30",
+            faq_a3: "เปิดทุกวัน 11:00–20:00 คิวตัดผมสุดท้าย 19:00 และ Stacking สุดท้าย 18:00",
             faq_q4: "รับวอล์กอินหรือต้องจอง?",
             faq_a4: "รับวอล์กอินและจองออนไลน์ หากต้องการเลือกช่างหรือเวลาแน่นอน แนะนำให้ตรวจเวลาว่างและจองก่อนเดินทาง",
             faq_updated: "ข้อมูลอัปเดตล่าสุด 1 ตุลาคม 2026",
@@ -104,7 +104,7 @@
             meta_shave: "ประมาณ 20 นาที",
             meta_dye: "ส่วนเสริมคู่กับตัดผม · ประมาณ 20 นาที",
             meta_mustache: "ประมาณ 30 นาที",
-            meta_stacking: "จัดทรงเต็ม · ประมาณ 90 นาที · คิวสุดท้าย 18:30",
+            meta_stacking: "จัดทรงเต็ม · ประมาณ 90 นาที · คิวสุดท้าย 18:00",
             price_badge: "ราคา",
             price_title: "บริการและราคา",
             team_badge: "ช่างของเรา",
@@ -118,7 +118,7 @@
             hours_badge: "เวลาเปิด",
             hours_title: "เปิดทุกวัน",
             hours_everyday: "ทุกวัน 11:00–20:00",
-            hours_last: "ตัดผมใช้เวลา 1 ชม. · คิวสุดท้าย 19:00 · Stacking สุดท้าย 18:30",
+            hours_last: "ตัดผมใช้เวลา 1 ชม. · คิวสุดท้าย 19:00 · Stacking สุดท้าย 18:00",
             day_mon: "จันทร์",
             day_tue: "อังคาร",
             day_wed: "พุธ",
@@ -293,7 +293,7 @@
             faq_q2: "How much is a haircut?",
             faq_a2: "A haircut is 300 THB, a beard trim is 200 THB and a shave is 200 THB. All service prices are shown before booking.",
             faq_q3: "Which days and hours are you open?",
-            faq_a3: "We open every day from 11:00 to 20:00. The last haircut appointment is 19:00 and the last Stacking appointment is 18:30.",
+            faq_a3: "We open every day from 11:00 to 20:00. The last haircut appointment is 19:00 and the last Stacking appointment is 18:00.",
             faq_q4: "Do you accept walk-ins?",
             faq_a4: "Yes. We accept walk-ins and online bookings. Book ahead if you want a specific barber or time.",
             faq_updated: "Last updated 1 October 2026",
@@ -334,7 +334,7 @@
             meta_shave: "About 20 min",
             meta_dye: "Add-on with a haircut · about 20 min",
             meta_mustache: "About 30 min",
-            meta_stacking: "Full restyle · about 90 min · last slot 18:30",
+            meta_stacking: "Full restyle · about 90 min · last slot 18:00",
             price_badge: "Prices",
             price_title: "Barber Services And Prices",
             team_badge: "Our Barbers",
@@ -348,7 +348,7 @@
             hours_badge: "Working Hours",
             hours_title: "Open Every Day",
             hours_everyday: "Every day 11:00–20:00",
-            hours_last: "Haircut takes 1 hour · last slot 19:00 · last stacking 18:30",
+            hours_last: "Haircut takes 1 hour · last slot 19:00 · last stacking 18:00",
             day_mon: "Monday",
             day_tue: "Tuesday",
             day_wed: "Wednesday",
@@ -470,17 +470,16 @@
 
     var LAST_SLOT = {
         haircut: "19:00",
-        beard: "19:30",
-        shave: "19:30",
-        dye: "19:30",
-        mustache: "19:30",
-        stacking: "18:30"
+        beard: "19:00",
+        shave: "19:00",
+        dye: "19:00",
+        mustache: "19:00",
+        stacking: "18:00"
     };
 
     var TIME_SLOTS = [
-        "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
-        "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
-        "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"
+        "11:00", "12:00", "13:00", "14:00", "15:00",
+        "16:00", "17:00", "18:00", "19:00"
     ];
 
     // Public pages are built in one language each (/ = Thai, /en/ = English).

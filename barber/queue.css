@@ -307,7 +307,7 @@
 
 .hours-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
     gap: 8px;
     margin: 12px 0 16px;
 }
@@ -1471,6 +1471,8 @@ body.pos-printing .pos-paper {
 .inc-bar .is-unpaid, .inc-tile.is-unpaid { --c: var(--unpaid); }
 .inc-bar .is-walkin, .inc-tile.is-walkin { --c: var(--walkin); }
 .inc-bar .is-online, .inc-tile.is-online { --c: var(--online); }
+.inc-tile.is-shop { --c: #f5c542; }
+.inc-tile.is-payout { --c: #2dd4bf; }
 .inc-bar i { background: var(--c); }
 .inc-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
 .inc-tile { background: #111; border-radius: 12px; padding: 12px 14px; border-left: 4px solid var(--c); }
@@ -1526,3 +1528,6 @@ body.pos-printing .pos-paper {
 .contact-form { display: grid; grid-template-columns: 1fr; gap: 6px; max-width: 420px; }
 .contact-form .form-label { margin: 6px 0 0; color: #cfd2dc; font-size: .92rem; }
 .contact-form .btn { margin-top: 10px; justify-self: start; }
+
+/* Income cards: take-home vs. shop cut */
+.summary-card .day-split { display: block; color: #9aa0b8; font-size: 13px; margin-top: 2px; }

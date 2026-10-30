@@ -561,7 +561,7 @@
         wrap.appendChild(amount);
         var hint = document.createElement("p");
         hint.className = "queue-meta mb-2";
-        hint.textContent = "เพิ่มบริการตอนตัด · ถ้าชนคิวถัดไป จะเพิ่มไม่ได้";
+        hint.textContent = "เพิ่มบริการตอนตัด · คิดเงินเพิ่ม เวลาคิวไม่ขยาย";
         wrap.appendChild(hint);
         SERVICE_ORDER.forEach(function (service) {
             if (service === row.service) {

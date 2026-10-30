@@ -34,8 +34,42 @@ table `services`, migration `0006_services.sql`). The booking, price, service
 and home pages, the POS and the barber queue all read them from `/api/services`;
 the menu written in the HTML is only a fallback. Each bill keeps the prices it
 was charged at (`bookings.prices`), so changing a price never changes past
-bills or income. The SEO price data (JSON-LD) in the page headers is still
-static: update it by hand when prices change for good.
+bills or income.
+
+What crawlers read follows the same table (`worker-prices.js`): when the worker
+serves a public page, `llms.txt` or `js/i18n.js` it rebuilds the JSON-LD
+`makesOffer` list from the active services and puts the current prices into
+the price phrases of titles, meta descriptions, FAQ answers and page text
+("ตัดผม 300 บาท", "Haircut 300 THB", ...). Prices there are at most a minute old.
+Keep writing those phrases with the default prices and the same wording; new
+wording needs a rule in `worker-prices.js`. The price board image
+(`img/Price2.webp`) is still a picture and must be redone by hand.
+
+## Booking slots
+
+Bookings use one-hour slots, 11:00 to 19:00 (the shop closes at 20:00). A
+service takes as many whole hours as its minutes need (haircut 60 min = 1
+slot, Stacking 90 min = 2 slots), and its last slot is the latest start that
+still ends by 20:00. Bookings and blocked times saved under the old half-hour
+grid (13:30) still work: they close every hour they overlap.
+
+Services added at the chair (extras) are charged but never extend the booking's
+time, so they can always be added even when the next queue starts right after.
+
+## Income split and Excel exports
+
+- Barbers keep `BARBER_SHARE_PCT` (50) of the work they finish; the rest is the
+  shop's. The owner/admin is the shop, so nothing is split off Rim's own work.
+  Change the deal in one place: `BARBER_SHARE_PCT` in `worker.js`.
+- "รายได้" shows a barber what they take home (the big number), with the full
+  takings and the shop's cut under it. Rim's shop panel adds "ส่วนร้าน" and
+  "จ่ายช่าง" totals and each barber's split.
+- Excel รายวัน / สัปดาห์ / เดือน: barbers download their own income
+  (`/api/barber/income.xlsx?period=day|week|month`: totals per hour for a day or per
+  day for a week/month, with the shop's cut, plus every job with its items,
+  times and payment;
+  no customer phone numbers); Rim downloads the payroll for every barber
+  (`/api/owner/payroll.xlsx`), now with the barber pay and shop share filled in.
 
 ## Database changes
 

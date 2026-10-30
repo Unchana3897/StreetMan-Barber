@@ -7,9 +7,9 @@
 
 const MARK = "ข้อมูลทดสอบ";
 const clearOnly = process.argv.includes("--clear");
-const SERVICES = { haircut: [300, 2], beard: [200, 1], shave: [200, 1], dye: [150, 1], mustache: [500, 1], stacking: [1000, 3] };
+const SERVICES = { haircut: [300, 1], beard: [200, 1], shave: [200, 1], dye: [150, 1], mustache: [500, 1], stacking: [1000, 2] };
 const SLOTS = [];
-for (let m = 11 * 60; m <= 19 * 60 + 30; m += 30) SLOTS.push(`${String(m / 60 | 0).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+for (let m = 11 * 60; m <= 19 * 60; m += 60) SLOTS.push(`${String(m / 60 | 0).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
 // Same local test password as scripts/dev-seed.sql (localdev-cfd8a893).
 const HASH = "pbkdf2$100000$49cfea62c8dc3717d678559038190024$338dcc979452b58cacd5928dd56a99c776b3bf29921fe736f88a441663475fb5";
 const DEMO_BARBERS = [["tong", "Tong"], ["mek", "Mek"]];
@@ -22,7 +22,9 @@ const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 21474836
 const pick = (list) => list[Math.floor(rand() * list.length)];
 const between = (a, b) => a + Math.floor(rand() * (b - a + 1));
 const q = (v) => (v === null ? "NULL" : `'${String(v).replace(/'/g, "''")}'`);
-const hex = (n) => Array.from({ length: n }, () => Math.floor(rand() * 16).toString(16)).join("");
+// Cancel tokens must be unique (idx_bookings_cancel_token); the small generator
+// above repeats itself, which made INSERT OR IGNORE drop rows. Use real randomness.
+const hex = (n) => require("node:crypto").randomBytes(Math.ceil(n / 2)).toString("hex").slice(0, n);
 
 const out = [`DELETE FROM bill_edits WHERE booking_id IN (SELECT id FROM bookings WHERE note=${q(MARK)});`,
     `DELETE FROM bookings WHERE note=${q(MARK)};`];

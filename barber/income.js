@@ -73,9 +73,24 @@
         }, 3000);
     }
 
+    var sharePct = 50;
+    var ownerView = false;
+
+    // The server sends `payout`; fall back to the share of `revenue` if it doesn't.
+    function payoutOf(period) {
+        return typeof period.payout === "number" ? period.payout : Math.round((period.revenue || 0) * sharePct / 100);
+    }
+
+    // Barbers: the big number is what they take home; the line under it shows
+    // the full takings and the shop's cut. The owner keeps everything.
     function fillCard(el, title, period) {
+        var revenue = period.revenue || 0;
+        var mine = ownerView ? revenue : payoutOf(period);
         el.querySelector("span").textContent = title;
-        el.querySelector("strong").textContent = baht(period.revenue);
+        el.querySelector("strong").textContent = baht(mine);
+        el.querySelector(".day-split").textContent = ownerView
+            ? "เจ้าของร้าน · ไม่หักส่วนแบ่ง"
+            : "ยอดตัด " + baht(revenue) + " − หักร้าน " + (100 - sharePct) + "% " + baht(revenue - mine);
         el.querySelector(".day-rev").textContent = "ตัดเสร็จ " + (period.done || 0) + " คน" +
             (period.uncollected ? " · ยังไม่ได้คิดเงิน " + (period.uncollected_count || 0) + " คิว " + baht(period.uncollected) : "");
     }
@@ -92,9 +107,10 @@
     function renderCards(data) {
         var wrap = document.getElementById("income-cards");
         wrap.innerHTML =
-            "<article class=\"summary-card\"><span>วันนี้</span><strong></strong><span class=\"day-rev\"></span></article>" +
-            "<article class=\"summary-card\"><span>สัปดาห์นี้</span><strong></strong><span class=\"day-rev\"></span></article>" +
-            "<article class=\"summary-card\"><span>เดือนนี้</span><strong></strong><span class=\"day-rev\"></span></article>";
+            ["วันนี้", "สัปดาห์นี้", "เดือนนี้"].map(function (label) {
+                return "<article class=\"summary-card\"><span>" + label + "</span><strong></strong>" +
+                    "<span class=\"day-split\"></span><span class=\"day-rev\"></span></article>";
+            }).join("");
         var cards = wrap.querySelectorAll(".summary-card");
         fillCard(cards[0], "วันนี้ · " + thaiDate(data.date), data.day);
         fillCard(cards[1], "สัปดาห์นี้", data.week);
@@ -126,7 +142,7 @@
             return {
                 key: row.date,
                 label: weekday(row.date) + " " + shortDay(row.date),
-                value: row.revenue || 0
+                value: ownerView ? (row.revenue || 0) : payoutOf(row)
             };
         }), data.date);
         document.getElementById("month-chart-title").textContent =
@@ -135,7 +151,7 @@
             return {
                 key: row.date,
                 label: shortDay(row.date),
-                value: row.revenue || 0
+                value: ownerView ? (row.revenue || 0) : payoutOf(row)
             };
         }), data.date);
     }
@@ -154,8 +170,10 @@
         if (pos) {
             pos.classList.add("d-none");
         }
-        document.getElementById("export-week").classList.toggle("d-none", !owner);
-        document.getElementById("export-month").classList.toggle("d-none", !owner);
+        // Daily file: each barber's own day (Rim gets hers too; payroll stays week/month).
+        document.getElementById("export-day").classList.remove("d-none");
+        document.getElementById("export-week").classList.remove("d-none");
+        document.getElementById("export-month").classList.remove("d-none");
         if (!owner || !data.shop) {
             el.className = "shop-panel d-none";
             el.innerHTML = "";
@@ -209,7 +227,7 @@
 
         // Barbers ranked by takings for the chosen period.
         var barbers = (shop.barbers || []).map(function (b) {
-            return { name: b.name, active: b.active, deleted: b.deleted, me: b.id === data.barber.id, p: b[shopPeriod] || {} };
+            return { name: b.name, active: b.active, deleted: b.deleted, me: b.id === data.barber.id, owner: b.role === "owner" || b.role === "admin" || b.id === "rim", p: b[shopPeriod] || {} };
         }).sort(function (a, b) { return (b.p.revenue || 0) - (a.p.revenue || 0); });
         var top = (barbers[0] && barbers[0].p.revenue) || 1;
         var MEDALS = ["🥇", "🥈", "🥉"];
@@ -220,6 +238,7 @@
                 "<div class=\"inc-rank-body\"><div class=\"inc-rank-top\"><b></b><strong>" + baht(rev) + "</strong></div>" +
                 "<div class=\"inc-rank-track\"><i style=\"width:" + (rev / top * 100).toFixed(1) + "%\"></i></div>" +
                 "<span class=\"inc-rank-note\">✂️ " + (b.p.done || 0) + " หัว" +
+                (rev ? (b.owner ? " · เจ้าของร้าน" : " · ช่างได้ " + baht(b.p.payout || 0) + " · ร้าน " + baht(b.p.shop_share || 0)) : "") +
                 (b.p.uncollected ? " · ⏳ ค้าง " + baht(b.p.uncollected) : "") + (b.deleted ? " · ลบบัญชีแล้ว" : b.active ? "" : " · ปิดงาน") + "</span></div></li>";
         }).join("");
 
@@ -227,6 +246,10 @@
             "<div class=\"inc-head\"><h2>🏪 ยอดทั้งร้าน</h2><div class=\"inc-tabs\">" + tabs + "</div></div>" +
             "<div class=\"inc-hero\"><span>" + periodLabel + "</span><strong>" + baht(period.revenue || 0) + "</strong>" +
             "<em>✂️ " + (period.done || 0) + " หัว</em></div>" +
+            "<div class=\"inc-tiles\">" +
+            tile("is-shop", "🏪", "ส่วนร้าน", period.shop_share || 0, "รวมยอดที่เจ้าของร้านตัดเอง") +
+            tile("is-payout", "💈", "จ่ายช่าง " + sharePct + "%", period.payout || 0, "ส่วนแบ่งของช่างลูกทีม") +
+            "</div>" +
             "<h3 class=\"inc-h\">💰 เงินเข้า</h3>" + money +
             "<h3 class=\"inc-h\">🧭 ช่องทาง</h3>" + channels +
             "<h3 class=\"inc-h\">💈 ช่าง</h3><ol class=\"inc-rank\">" + rank + "</ol>";
@@ -242,6 +265,8 @@
     }
 
     function render(data) {
+        sharePct = typeof data.share_pct === "number" ? data.share_pct : 50;
+        ownerView = isOwner(data.barber);
         document.getElementById("barber-name").textContent = "รายได้ของ " + data.barber.name;
         renderCards(data);
         renderCharts(data);
@@ -280,18 +305,24 @@
 
     async function exportExcel(period) {
         try {
-            var file = await window.StreetManStore.payrollFile(dateEl.value || todayISO(), period);
+            var store = window.StreetManStore;
+            var file = ownerView && period !== "day"
+                ? await store.payrollFile(dateEl.value || todayISO(), period)
+                : await store.incomeFile(dateEl.value || todayISO(), period);
             saveBlob(file.blob, file.filename);
-            showToast("ส่งออก Excel แล้ว เปิดไฟล์แล้วกรอกช่องยอดจ่ายช่างได้");
+            showToast(ownerView && period !== "day" ? "ส่งออก Excel แล้ว (ทุกช่าง พร้อมยอดจ่ายช่างและส่วนร้าน)" : "ส่งออก Excel รายได้ของคุณแล้ว");
         } catch (err) {
             if (err && err.status === 401) {
                 window.location.href = "login.html";
                 return;
             }
-            showToast(err && err.status === 403 ? "ส่งออกได้เฉพาะ Rim" : "ส่งออกไม่สำเร็จ ลองอีกครั้ง");
+            showToast("ส่งออกไม่สำเร็จ ลองอีกครั้ง");
         }
     }
 
+    document.getElementById("export-day").addEventListener("click", function () {
+        exportExcel("day");
+    });
     document.getElementById("export-week").addEventListener("click", function () {
         exportExcel("week");
     });

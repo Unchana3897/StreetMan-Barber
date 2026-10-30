@@ -16,21 +16,21 @@
     ];
     var LAST_SLOT = {
         haircut: "19:00",
-        beard: "19:30",
-        shave: "19:30",
-        dye: "19:30",
-        mustache: "19:30",
-        stacking: "18:30"
+        beard: "19:00",
+        shave: "19:00",
+        dye: "19:00",
+        mustache: "19:00",
+        stacking: "18:00"
     };
     var SLOT_COUNT = {
-        haircut: 2,
+        haircut: 1,
         beard: 1,
         shave: 1,
         dye: 1,
         mustache: 1,
-        stacking: 3
+        stacking: 2
     };
-    var SLOT_MINUTES = 30;
+    var SLOT_MINUTES = 60;
     var PRICES = {
         haircut: 300,
         beard: 200,
@@ -40,9 +40,8 @@
         stacking: 1000
     };
     var TIME_SLOTS = [
-        "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
-        "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
-        "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"
+        "11:00", "12:00", "13:00", "14:00", "15:00",
+        "16:00", "17:00", "18:00", "19:00"
     ];
 
     var nodeMode = null;
@@ -294,13 +293,10 @@
         return SLOT_COUNT[service] || 1;
     }
 
-    function extrasSlotCount(extras) {
-        return (extras || []).reduce(function (sum, item) {
-            if (item && typeof item === "object") {
-                return sum;
-            }
-            return sum + serviceSlots(item);
-        }, 0);
+    // Extras added at the chair are charged but never extend the booking's time
+    // (same rule as the server), so this always counts zero extra slots.
+    function extrasSlotCount() {
+        return 0;
     }
 
     function occupyRange(start, count, clamp) {
@@ -881,6 +877,28 @@
             writeStaff(rows);
             return { ok: true, day_off: dayOff };
         },
+        // The signed-in barber's own income as .xlsx (week or month), shop's cut included.
+        incomeFile: async function (date, period) {
+            date = date || bangkokNow().date;
+            period = period === "day" || period === "week" ? period : "month";
+            if (!(await usingNode())) {
+                var offline = new Error("export_failed");
+                offline.status = 503;
+                throw offline;
+            }
+            var res = await fetch(
+                "/api/barber/income.xlsx?date=" + encodeURIComponent(date) + "&period=" + period,
+                { credentials: "same-origin", headers: authHeaders() }
+            );
+            if (!res.ok) {
+                var fail = new Error(res.status === 401 ? "login" : "export_failed");
+                fail.status = res.status;
+                throw fail;
+            }
+            var blob = await res.blob();
+            var match = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") || "");
+            return { blob: blob, filename: match ? match[1] : "StreetMan-income.xlsx" };
+        },
         payrollFile: async function (date, period) {
             date = date || bangkokNow().date;
             period = period === "week" ? "week" : "month";
@@ -1249,7 +1267,7 @@
                 // Offline demo mode (no server): the built-in menu.
                 var names = { haircut: "ตัดผม", beard: "ตกแต่งเครา", shave: "โกนหนวด", dye: "ย้อมผม", mustache: "ตกแต่งหนวด", stacking: "เซ็ตทรง / Stacking" };
                 return Object.keys(PRICES).map(function (id, i) {
-                    return { id: id, name: names[id] || id, name_en: id, note: "", note_en: "", price: PRICES[id], minutes: SLOT_COUNT[id] * 30, slots: SLOT_COUNT[id], last: LAST_SLOT[id], active: true, sort: i + 1 };
+                    return { id: id, name: names[id] || id, name_en: id, note: "", note_en: "", price: PRICES[id], minutes: SLOT_COUNT[id] * SLOT_MINUTES, slots: SLOT_COUNT[id], last: LAST_SLOT[id], active: true, sort: i + 1 };
                 });
             }
             var key = all ? "all" : "active";

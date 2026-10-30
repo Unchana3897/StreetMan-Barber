@@ -1,5 +1,6 @@
 import { workbook as xlsxWorkbook, s as xs, n as xn, h as xh } from "./worker-xlsx.js";
 import { pushConfigured, sendPush } from "./worker-push.js";
+import { applyPrices } from "./worker-prices.js";
 
 // Services and prices live in the D1 table `services` (owner edits them on
 // "จัดการช่าง"). DEFAULT_SERVICES is only used before migration 0006 is applied.
@@ -14,15 +15,14 @@ const DEFAULT_SERVICES = [
 // id -> { name, price, slots, last, active, ... }; refreshed from D1 at the start of every API request.
 let SERVICES = {};
 
-const TIME_SLOTS = [
-  "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
-  "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
-  "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"
-];
+// One-hour booking slots; the shop closes at 20:00. Bookings made before the
+// switch from half-hour slots may still start at :30 (see occupiedSlots).
+const SLOT_MINUTES = 60;
+const TIME_SLOTS = ["11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"];
 function serviceMap(rows) {
   const map = {};
   rows.forEach((r) => {
-    const slots = Math.min(6, Math.max(1, Math.ceil((Number(r.minutes) || 30) / 30)));
+    const slots = Math.min(TIME_SLOTS.length, Math.max(1, Math.ceil((Number(r.minutes) || SLOT_MINUTES) / SLOT_MINUTES)));
     // Last start time so the service still ends by closing (20:00).
     const last = TIME_SLOTS[Math.max(0, TIME_SLOTS.length - slots)];
     map[r.id] = { ...r, price: Number(r.price) || 0, minutes: Number(r.minutes) || 30, slots, last, active: Number(r.active) === 1 };
@@ -31,11 +31,19 @@ function serviceMap(rows) {
 }
 SERVICES = serviceMap(DEFAULT_SERVICES);
 
+let servicesLoadedAt = 0;
 async function loadServices(env) {
   try {
     const rows = (await env.DB.prepare("SELECT * FROM services ORDER BY sort,created_at").all()).results || [];
     if (rows.length) SERVICES = serviceMap(rows);
   } catch (_) { SERVICES = serviceMap(DEFAULT_SERVICES); }
+  servicesLoadedAt = Date.now();
+}
+// Public pages only need prices to be at most a minute old; API requests
+// (POS, booking, "จัดการช่าง") always reload.
+async function servicesForPages(env) {
+  if (Date.now() - servicesLoadedAt > 60000) await loadServices(env);
+  return SERVICES;
 }
 
 function publicService(s) {
@@ -301,7 +309,23 @@ function snapshotOf(row) {
 }
 function priceIn(snapshot, id) { return Object.prototype.hasOwnProperty.call(snapshot, id) ? Number(snapshot[id]) || 0 : (SERVICES[id]?.price || 0); }
 function extraAmount(item, snapshot = {}) { return item && typeof item === "object" ? Number(item.amount) || 0 : priceIn(snapshot, item); }
-function slotsCount(service, extras = []) { return (SERVICES[service]?.slots || 1) + extras.reduce((n, item) => n + (typeof item === "string" ? (SERVICES[item]?.slots || 0) : 0), 0); }
+// Time a booking holds = its main service only. Extras added at the chair are
+// charged but never extend the slot, so they can't clash with the next queue;
+// the barber fits them into the hour. (`extras` is kept for the callers.)
+function slotsCount(service, extras = []) { return SERVICES[service]?.slots || 1; }
+const toMinutes = (t) => { const [h, m] = String(t).split(":").map(Number); return h * 60 + (m || 0); };
+// Hour slots a booking touches: from its start (any minute) to whichever ends
+// later, the stored end_time or the service's current length. Old half-hour
+// bookings (13:30) block every hour they overlap. Walk-ins logged at the clock
+// time (HH:MM:SS, taken when the day was full) never block online bookings.
+function occupiedSlots(row) {
+  if (String(row.time).length > 5) return [];
+  const start = toMinutes(row.time);
+  const end = Math.max(start + slotsCount(row.service, parseExtras(row.extras, row.service)) * SLOT_MINUTES, row.end_time ? toMinutes(row.end_time) : 0);
+  return TIME_SLOTS.filter((slot) => { const at = toMinutes(slot); return at < end && at + SLOT_MINUTES > start; });
+}
+// A block saved under the old half-hour grid (13:30) closes its hour.
+const blockSlot = (slot) => `${String(slot).slice(0, 2)}:00`;
 function occupyRange(time, count, clamp = false) {
   const index = TIME_SLOTS.indexOf(time);
   if (index < 0 || count < 1) return null;
@@ -310,7 +334,7 @@ function occupyRange(time, count, clamp = false) {
 }
 function endTime(time, count) {
   const [hour, minute] = time.split(":").map(Number);
-  const total = hour * 60 + minute + count * 30;
+  const total = hour * 60 + minute + count * SLOT_MINUTES;
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 function decorate(row, includeToken = false) {
@@ -472,12 +496,13 @@ function serviceLine(row) {
 
 // Payroll workbook: one summary sheet plus one sheet per barber (finished work in the range).
 async function payrollWorkbook(env, from, to) {
-  const details = (await all(env, `SELECT b.*,br.name AS barber_name FROM bookings b JOIN barbers br ON br.id=b.barber_id
+  const details = (await all(env, `SELECT b.*,br.name AS barber_name,br.role AS barber_role FROM bookings b JOIN barbers br ON br.id=b.barber_id
     WHERE b.status='done' AND b.date>=? AND b.date<=? ORDER BY br.name,b.date,b.time,b.id`, from, to)).map((r) => decorate(r));
   const chairs = await listBarbers(env, false, true, true);
   const sheetName = (name) => String(name || "ช่าง").replace(/[:\\/?*[\]]/g, "").slice(0, 31) || "ช่าง";
   const when = (r) => { const [y, m, d] = r.date.split("-"); return `${d}/${m}/${y} ${String(r.time).slice(0, 5)}`; };
   const sum = (rows) => rows.reduce((t, r) => t + r.amount, 0);
+  const pay = (rows) => rows.reduce((t, r) => t + payoutOf(r, r.amount), 0);
   const summary = chairs.map((b) => { const rows = details.filter((r) => r.barber_id === b.id); return { b, rows }; })
     .filter(({ b, rows }) => b.status !== "deleted" || rows.length);
   const walkins = details.filter(isWalkinRow), online = details.filter((r) => !isWalkinRow(r));
@@ -501,12 +526,12 @@ async function payrollWorkbook(env, from, to) {
   return xlsxWorkbook([
     {
       name: "สรุปจ่ายเงินเดือน",
-      widths: [30, 16, 12, 16, 20],
+      widths: [30, 16, 12, 16, 22, 22],
       rows: [
         // Table 1: per barber (for payroll)
-        [xh("ช่าง"), xh("ชื่อเข้าสู่ระบบ"), xh("จำนวนหัว"), xh("ยอดร้าน (บาท)"), xh("ยอดจ่ายช่าง")],
-        ...summary.map(({ b, rows }) => [xs(b.name), xs(b.username), xn(rows.length), xn(sum(rows)), xs("")]),
-        [bold("รวมทุกช่าง"), blank(), bold(details.length), bold(sum(details)), blank()],
+        [xh("ช่าง"), xh("ชื่อเข้าสู่ระบบ"), xh("จำนวนหัว"), xh("ยอดตัด (บาท)"), xh(`ยอดจ่ายช่าง (${BARBER_SHARE_PCT}%)`), xh(`ส่วนร้าน (${100 - BARBER_SHARE_PCT}%)`)],
+        ...summary.map(({ b, rows }) => [xs(b.name + (isOwnerRow({ barber_role: b.role, barber_id: b.id }) ? " (เจ้าของร้าน)" : "")), xs(b.username), xn(rows.length), xn(sum(rows)), xn(pay(rows)), xn(sum(rows) - pay(rows))]),
+        [bold("รวมทุกช่าง"), blank(), bold(details.length), bold(sum(details)), bold(pay(details)), bold(sum(details) - pay(details))],
         [blank()],
         // Table 2: by channel, then by how the money came in
         [xh("ช่องทาง / วิธีจ่าย"), blank(), xh("จำนวนหัว"), xh("ยอด (บาท)")],
@@ -521,15 +546,77 @@ async function payrollWorkbook(env, from, to) {
     },
     ...summary.map(({ b, rows }) => ({
       name: sheetName(b.name),
-      widths: [16, 16, 16, 28, 12, 14, 14, 18],
+      widths: [16, 16, 16, 28, 12, 12, 12, 14, 14, 18],
       rows: [
-        [xh("วันเวลา"), xh("ลูกค้า"), xh("เบอร์"), xh("บริการ"), xh("ยอด"), xh("ช่องทาง"), xh("วิธีจ่าย"), xh("หมายเหตุ")],
+        [xh("วันเวลา"), xh("ลูกค้า"), xh("เบอร์"), xh("บริการ"), xh("ยอด"), xh("ช่างได้"), xh("ส่วนร้าน"), xh("ช่องทาง"), xh("วิธีจ่าย"), xh("หมายเหตุ")],
         ...rows.map((r) => [xs(when(r)), xs(isWalkinRow(r) ? "Walk in" : r.customer_name), xs(isWalkinRow(r) ? "" : prettyPhone(r.phone)),
-          { v: serviceLine(r), w: true }, xn(r.amount), xs(isWalkinRow(r) ? "หน้าร้าน" : "ออนไลน์"),
+          { v: serviceLine(r), w: true }, xn(r.amount), xn(payoutOf(r, r.amount)), xn(r.amount - payoutOf(r, r.amount)), xs(isWalkinRow(r) ? "หน้าร้าน" : "ออนไลน์"),
           xs(PAY_NAMES[r.payment_method] || "ยังไม่ได้คิดเงิน"), { v: isWalkinRow(r) ? "Walk in" : (r.note || ""), w: true }]),
-        [xs("รวม " + b.name), xs(""), xs(""), xs(rows.length + " คน"), xn(sum(rows)), xs(""), xs(""), xs("")]
+        [xs("รวม " + b.name), xs(""), xs(""), xs(rows.length + " คน"), xn(sum(rows)), xn(pay(rows)), xn(sum(rows) - pay(rows)), xs(""), xs(""), xs("")]
       ]
     }))
+  ]);
+}
+
+// A barber's own income for a day, week or month: totals per hour (day) or per
+// day (week/month) with the shop's cut, then every finished job in detail.
+// Only that barber's work; no customer phone numbers.
+async function barberIncomeWorkbook(env, barber, from, to, period = "month") {
+  const rows = (await bookingsBetween(env, barber.barber_id, from, to)).filter((r) => r.status === "done").map((r) => decorate(r));
+  const owner = isOwnerRow({ barber_role: barber.role, barber_id: barber.barber_id });
+  const dmy = (iso) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; };
+  const DAYS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+  const sum = (list) => list.reduce((t, r) => t + r.amount, 0);
+  const pay = (list) => list.reduce((t, r) => t + payoutOf(r, r.amount), 0);
+  const bold = (v) => ({ v, h: true, n: typeof v === "number" });
+  const blank = () => xs("");
+  const days = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) days.push(d);
+  // Day file: one row per hour slot (a job started 13:30 under the old grid counts in 13:00).
+  const buckets = period === "day"
+    ? TIME_SLOTS.map((slot) => ({ label: `${slot}–${endTime(slot, 1)}`, rows: rows.filter((r) => blockSlot(r.time) === slot) }))
+      .concat([{ label: "นอกเวลาจอง", rows: rows.filter((r) => !TIME_SLOTS.includes(blockSlot(r.time))) }]).filter((b) => b.label !== "นอกเวลาจอง" || b.rows.length)
+    : days.map((d) => ({ label: `${DAYS[weekdayOf(d)]} ${dmy(d)}`, rows: rows.filter((r) => r.date === d) }));
+  const hm = (iso) => iso ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso)) : "";
+  const itemLine = (r) => (r.items || []).map((item) => `${item.id === "other" ? "อื่นๆ" : item.name} ${item.price}`).join(" + ");
+  const byMethod = (m) => rows.filter((r) => (r.payment_method || null) === m);
+  const shareNote = owner ? "เจ้าของร้าน: ได้เต็มจำนวน ไม่หักส่วนแบ่ง" : `ช่าง ${BARBER_SHARE_PCT}% / ร้าน ${100 - BARBER_SHARE_PCT}%`;
+  return xlsxWorkbook([
+    {
+      name: "สรุปรายได้",
+      widths: [22, 12, 16, 18, 18],
+      rows: [
+        [bold("รายได้ของ " + barber.name), blank(), blank(), blank(), blank()],
+        [xs(from === to ? `วันที่ ${DAYS[weekdayOf(from)]} ${dmy(from)}` : `ช่วงวันที่ ${dmy(from)} – ${dmy(to)}`), blank(), blank(), blank(), blank()],
+        [xs("ส่วนแบ่ง: " + shareNote), blank(), blank(), blank(), blank()],
+        [blank()],
+        [xh(period === "day" ? "ช่วงเวลา" : "วันที่"), xh("จำนวนหัว"), xh("ยอดตัด (บาท)"), xh("หักเข้าร้าน (บาท)"), xh("ช่างได้รับ (บาท)")],
+        ...buckets.map(({ label, rows: list }) => {
+          const total = sum(list), mine = owner ? total : pay(list);
+          return [xs(label), xn(list.length), xn(total), xn(total - mine), xn(mine)];
+        }),
+        [bold("รวม"), bold(rows.length), bold(sum(rows)), bold(owner ? 0 : sum(rows) - pay(rows)), bold(owner ? sum(rows) : pay(rows))],
+        [blank()],
+        [xh("วิธีจ่ายของลูกค้า"), xh("จำนวนบิล"), xh("ยอด (บาท)"), blank(), blank()],
+        [xs("เงินสด"), xn(byMethod("cash").length), xn(sum(byMethod("cash"))), blank(), blank()],
+        [xs("โอน / QR"), xn(byMethod("transfer").length), xn(sum(byMethod("transfer"))), blank(), blank()],
+        [xs("ยังไม่ได้คิดเงิน"), xn(byMethod(null).length), xn(sum(byMethod(null))), blank(), blank()]
+      ]
+    },
+    {
+      name: "รายการ",
+      widths: [6, 12, 12, 16, 34, 12, 14, 14, 12, 14, 12, 22],
+      rows: [
+        [xh("#"), xh("วันที่"), xh("เวลา"), xh("ลูกค้า"), xh("รายละเอียดบริการ (บาท)"), xh("ยอด"), xh("หักเข้าร้าน"), xh("ช่างได้รับ"), xh("ช่องทาง"), xh("วิธีจ่าย"), xh("เวลาคิดเงิน"), xh("หมายเหตุ")],
+        ...rows.map((r, i) => {
+          const mine = owner ? r.amount : payoutOf(r, r.amount);
+          return [xn(i + 1), xs(dmy(r.date)), xs(`${String(r.time).slice(0, 5)}–${String(r.end_time || "").slice(0, 5)}`), xs(isWalkinRow(r) ? "Walk in" : r.customer_name),
+            { v: itemLine(r), w: true }, xn(r.amount), xn(r.amount - mine), xn(mine), xs(isWalkinRow(r) ? "หน้าร้าน" : "ออนไลน์"),
+            xs(PAY_NAMES[r.payment_method] || "ยังไม่ได้คิดเงิน"), xs(hm(r.paid_at)), { v: isWalkinRow(r) || r.note === "ข้อมูลทดสอบ" ? "" : (r.note || ""), w: true }];
+        }),
+        [blank(), bold("รวม"), blank(), xs(rows.length + " คน"), blank(), bold(sum(rows)), bold(owner ? 0 : sum(rows) - pay(rows)), bold(owner ? sum(rows) : pay(rows)), blank(), blank(), blank(), blank()]
+      ]
+    }
   ]);
 }
 
@@ -584,13 +671,13 @@ async function placement(env, barberId, date, time, service, extras = [], except
   const count = slotsCount(service, extras);
   const range = occupyRange(time, count, Boolean(exceptId));
   if (!range) return { error: "bad_time" };
-  const bookings = await all(env, "SELECT id,time,service,extras FROM bookings WHERE barber_id=? AND date=? AND status!='cancelled'", barberId, date);
+  const bookings = await all(env, "SELECT id,time,end_time,service,extras FROM bookings WHERE barber_id=? AND date=? AND status!='cancelled'", barberId, date);
   const occupied = new Set();
   bookings.forEach((row) => {
     if (exceptId && Number(row.id) === Number(exceptId)) return;
-    (occupyRange(row.time, slotsCount(row.service, parseExtras(row.extras, row.service)), true) || [row.time]).forEach((slot) => occupied.add(slot));
+    occupiedSlots(row).forEach((slot) => occupied.add(slot));
   });
-  const blocks = new Set((await all(env, "SELECT slot FROM barber_blocks WHERE barber_id=? AND date=?", barberId, date)).map((r) => r.slot));
+  const blocks = new Set((await all(env, "SELECT slot FROM barber_blocks WHERE barber_id=? AND date=?", barberId, date)).map((r) => blockSlot(r.slot)));
   if (range.some((slot) => occupied.has(slot) || blocks.has(slot))) return { error: exceptId ? "extra_overlap" : "slot_taken" };
   return { ok: true, range };
 }
@@ -620,18 +707,17 @@ async function pickBarber(env, requested, date, time, service, extras = []) {
 async function availabilityContext(env, date) {
   const [chairs, bookings, blocks] = await Promise.all([
     listBarbers(env, true, true),
-    all(env, "SELECT barber_id,time,service,extras FROM bookings WHERE date=? AND status!='cancelled'", date),
+    all(env, "SELECT barber_id,time,end_time,service,extras FROM bookings WHERE date=? AND status!='cancelled'", date),
     all(env, "SELECT barber_id,slot FROM barber_blocks WHERE date=?", date)
   ]);
   const unavailable = new Map(chairs.map((barber) => [barber.id, new Set()]));
   bookings.forEach((row) => {
     if (!unavailable.has(row.barber_id)) unavailable.set(row.barber_id, new Set());
-    (occupyRange(row.time, slotsCount(row.service, parseExtras(row.extras, row.service)), true) || [row.time])
-      .forEach((slot) => unavailable.get(row.barber_id).add(slot));
+    occupiedSlots(row).forEach((slot) => unavailable.get(row.barber_id).add(slot));
   });
   blocks.forEach((row) => {
     if (!unavailable.has(row.barber_id)) unavailable.set(row.barber_id, new Set());
-    unavailable.get(row.barber_id).add(row.slot);
+    unavailable.get(row.barber_id).add(blockSlot(row.slot));
   });
   return { chairs, unavailable };
 }
@@ -698,6 +784,13 @@ function phoneKey(phone) {
   return digits;
 }
 
+// Shop/barber deal: a barber keeps BARBER_SHARE_PCT of the work they finish and
+// the rest goes to the shop. The owner (and admin) is the shop, so nothing is
+// split off their own work. Money is counted per bill, rounded to whole baht.
+const BARBER_SHARE_PCT = 50;
+const isOwnerRow = (r) => r.barber_role === "owner" || r.barber_role === "admin" || r.barber_id === "rim";
+const payoutOf = (r, amount) => isOwnerRow(r) ? 0 : Math.round(amount * BARBER_SHARE_PCT / 100);
+
 function summarize(rows) {
   const done = rows.filter((r) => r.status === "done");
   const remaining = rows.filter((r) => r.status === "pending" || r.status === "confirmed");
@@ -718,7 +811,10 @@ function summarize(rows) {
     uncollected: done.filter((r) => !r.payment_method).reduce((sum, r) => sum + decorate(r).amount, 0),
     uncollected_count: done.filter((r) => !r.payment_method).length,
     cash_count: done.filter((r) => r.payment_method === "cash").length,
-    transfer_count: done.filter((r) => r.payment_method === "transfer").length
+    transfer_count: done.filter((r) => r.payment_method === "transfer").length,
+    // payout = the barbers' share of `revenue`; shop_share = what the shop keeps.
+    payout: done.reduce((sum, r) => sum + payoutOf(r, decorate(r).amount), 0),
+    shop_share: done.reduce((sum, r) => { const amount = decorate(r).amount; return sum + amount - payoutOf(r, amount); }, 0)
   };
 }
 
@@ -730,7 +826,7 @@ function sourceSplit(rows) {
 }
 
 async function bookingsBetween(env, barberId, from, to) {
-  const sql = `SELECT b.*,br.name AS barber_name FROM bookings b JOIN barbers br ON br.id=b.barber_id WHERE ${barberId ? "b.barber_id=? AND " : ""}b.date>=? AND b.date<=? ORDER BY b.date,b.time,b.id`;
+  const sql = `SELECT b.*,br.name AS barber_name,br.role AS barber_role FROM bookings b JOIN barbers br ON br.id=b.barber_id WHERE ${barberId ? "b.barber_id=? AND " : ""}b.date>=? AND b.date<=? ORDER BY b.date,b.time,b.id`;
   return await all(env, sql, ...(barberId ? [barberId, from, to] : [from, to]));
 }
 
@@ -743,7 +839,7 @@ async function incomeFor(env, barberId, date) {
     const out = [];
     for (let d = from; d <= to; d = addDays(d, 1)) {
       const sum = summarize(rows.filter((r) => r.date === d));
-      out.push({ date: d, done: sum.done, revenue: sum.revenue });
+      out.push({ date: d, done: sum.done, revenue: sum.revenue, payout: sum.payout, shop_share: sum.shop_share });
     }
     return out;
   };
@@ -937,7 +1033,7 @@ async function handleApi(request, env, url, ctx) {
     const upcomingRows = await all(env, "SELECT date,COUNT(*) count FROM bookings WHERE barber_id=? AND date>=? AND date<=? AND status!='cancelled' GROUP BY date", auth.barber_id, now.date, addDays(now.date, 13));
     const counts = new Map(upcomingRows.map((r) => [r.date, r.count]));
     const upcoming = Array.from({ length: 14 }, (_, i) => ({ date: addDays(now.date, i), count: counts.get(addDays(now.date, i)) || 0 }));
-    const blocked = (await all(env, "SELECT slot FROM barber_blocks WHERE barber_id=? AND date=? ORDER BY slot", auth.barber_id, date)).map((r) => r.slot);
+    const blocked = [...new Set((await all(env, "SELECT slot FROM barber_blocks WHERE barber_id=? AND date=? ORDER BY slot", auth.barber_id, date)).map((r) => blockSlot(r.slot)))].filter((s) => TIME_SLOTS.includes(s));
     const mine = await incomeFor(env, auth.barber_id, date);
     return json({ barber: meObject(auth), date, now, stats, next: date === now.date ? active.find((r) => r.time >= now.time) || null : active[0] || null, bookings: rows, upcoming, summary: { day: mine.day, month: mine.month }, shop: isOwnerAuth(auth) ? await shopSummary(env, date) : null, shop_status: await shopState(env), hours: { date, slots: TIME_SLOTS, blocked }, day_off: parseDayOff(auth.day_off) });
   }
@@ -948,10 +1044,25 @@ async function handleApi(request, env, url, ctx) {
     if (isOwnerAuth(auth)) {
       shop = await incomeFor(env, null, date);
       const chairs = await listBarbers(env, false, true, true);
-      shop.barbers = (await Promise.all(chairs.map(async (b) => ({ id: b.id, name: b.name, username: b.username, active: b.active, deleted: b.status === "deleted", ...(await incomeFor(env, b.id, date)) }))))
+      shop.barbers = (await Promise.all(chairs.map(async (b) => ({ id: b.id, name: b.name, username: b.username, role: b.role, active: b.active, deleted: b.status === "deleted", ...(await incomeFor(env, b.id, date)) }))))
         .filter((b) => !b.deleted || b.month.total || b.week.total);
     }
-    return json({ barber: meObject(auth), date, day: mine.day, week: mine.week, month: mine.month, shop });
+    return json({ barber: meObject(auth), date, day: mine.day, week: mine.week, month: mine.month, shop, share_pct: BARBER_SHARE_PCT });
+  }
+  if (path === "/api/barber/income.xlsx" && method === "GET") {
+    const denied = requireRole(auth, "chair"); if (denied) return denied;
+    const date = url.searchParams.get("date") || bangkokNow().date;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: "bad_date" }, 400);
+    const period = ["day", "week"].includes(url.searchParams.get("period")) ? url.searchParams.get("period") : "month";
+    const range = period === "day" ? { from: date, to: date } : period === "week" ? weekRange(date) : monthRange(date);
+    const bytes = await barberIncomeWorkbook(env, auth, range.from, range.to, period);
+    const who = String(auth.username || auth.barber_id).replace(/[^a-z0-9]/gi, "") || "barber";
+    const span = range.from === range.to ? range.from : `${range.from}-${range.to}`;
+    return new Response(bytes, { headers: {
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="StreetMan-income-${who}-${span}.xlsx"`,
+      "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"
+    } });
   }
   if (path === "/api/barber/hours" && method === "PUT") {
     const denied = requireRole(auth, "chair"); if (denied) return denied;
@@ -1366,17 +1477,34 @@ export default {
       }
       if (url.pathname.startsWith("/api/")) return await handleApi(request, env, url, ctx);
       if (url.pathname === "/barber" || url.pathname === "/barber/") return Response.redirect(`${url.origin}/barber/login.html`, 302);
-      let response = await env.ASSETS.fetch(request);
+      // Public pages, llms.txt and js/i18n.js carry live prices and contacts, so
+      // the static file's ETag says nothing about what we serve: never let the
+      // asset layer answer 304, and don't hand the ETag on.
+      const live = !url.pathname.startsWith("/barber/") && !/\.(?!html$)[a-z0-9]+$/i.test(url.pathname) || url.pathname === "/llms.txt" || url.pathname === "/js/i18n.js";
+      let assetRequest = request;
+      if (live) {
+        assetRequest = new Request(request);
+        assetRequest.headers.delete("If-None-Match");
+        assetRequest.headers.delete("If-Modified-Since");
+      }
+      let response = await env.ASSETS.fetch(assetRequest);
       const headers = new Headers(response.headers);
       const type = headers.get("Content-Type") || "";
-      if (response.status === 200 && !url.pathname.startsWith("/barber/") && (type.includes("text/html") || url.pathname === "/llms.txt")) {
-        const contact = await shopContact(env);
-        if (!contactIsDefault(contact)) {
-          const text = applyContact(await response.text(), contact);
-          headers.delete("ETag");
-          headers.delete("Content-Length");
-          response = new Response(text, response);
+      const isHtml = type.includes("text/html");
+      if (live) {
+        headers.delete("ETag");
+        headers.delete("Last-Modified");
+      }
+      if (response.status === 200 && request.method === "GET" && !url.pathname.startsWith("/barber/") && (isHtml || url.pathname === "/llms.txt" || url.pathname === "/js/i18n.js")) {
+        let text = await response.text();
+        if (url.pathname !== "/js/i18n.js") {
+          const contact = await shopContact(env);
+          if (!contactIsDefault(contact)) text = applyContact(text, contact);
         }
+        const kind = isHtml ? "html" : url.pathname === "/llms.txt" ? "llms" : "script";
+        text = applyPrices(text, await servicesForPages(env), kind);
+        headers.delete("Content-Length");
+        response = new Response(text, response);
       }
       headers.set("X-Content-Type-Options", "nosniff");
       headers.set("X-Frame-Options", "DENY");
