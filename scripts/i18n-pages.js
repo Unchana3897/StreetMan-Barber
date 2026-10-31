@@ -10,7 +10,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const ORIGIN = "https://streetmanbarberphuket.shop";
-const LAST_UPDATED = "2026-10-01";
+const LAST_UPDATED = "2026-11-01";
 // Pages that have an English twin under /en/. cancel switches language in place instead.
 const SLUGS = ["about", "service", "price", "team", "open", "contact", "testimonial", "book"];
 
@@ -18,8 +18,8 @@ const SLUGS = ["about", "service", "price", "team", "open", "contact", "testimon
 const PAGES = {
     "index.html": {
         path: "/",
-        title: "Barbershop in Phuket, Wichit | StreetMan Barber Phuket",
-        description: "Men's barbershop in Wichit, Phuket. Haircuts, fades, beard trims and shaves from 200 THB. Open daily 11:00–20:00. Walk-ins welcome, book online."
+        title: "Barber in Phuket (Wichit): Men's Haircuts & Fades | StreetMan",
+        description: "Looking for a barber in Phuket? StreetMan Barber, Wichit: men's haircuts, fades, beard trims and shaves from 200 THB. Open daily 11:00–20:00."
     },
     "about.html": {
         path: "/about",
@@ -33,7 +33,7 @@ const PAGES = {
     },
     "price.html": {
         path: "/price",
-        title: "Men's Haircut Prices in Phuket from 300 THB | StreetMan Barber",
+        title: "How Much Is a Men's Haircut in Phuket? Prices from 300 THB | StreetMan",
         description: "Haircut 300 THB, beard trim and shave 200 THB, hair dye 150 THB. Clear barbershop prices in Wichit, Phuket. Pay cash or bank transfer."
     },
     "team.html": {
