@@ -395,6 +395,11 @@ input[type="date"].form-control {
 }
 
 .testimonial-carousel .owl-dots .owl-dot img {
+    /* Customer photos are portrait; crop them to the square frame so they
+       don't spill over the text below the carousel. */
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
     opacity: .1;
     transition: .5s;
 }
